@@ -225,7 +225,7 @@
 		const resolved = pageThemeMode === 'auto' ? (systemDark.matches ? 'dark' : 'light') : pageThemeMode;
 		document.documentElement.dataset.pageThemeMode = pageThemeMode;
 		document.documentElement.dataset.colorMode = resolved;
-		pageThemeMeta?.setAttribute('content', resolved === 'dark' ? '#0d1713' : '#edf2ee');
+		pageThemeMeta?.setAttribute('content', resolved === 'dark' ? '#080808' : '#edf2ee');
 		for (const button of pageThemeButtons) {
 			button.setAttribute('aria-pressed', String(button.dataset.pageThemeMode === pageThemeMode));
 		}
