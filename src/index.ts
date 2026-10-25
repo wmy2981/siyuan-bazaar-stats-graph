@@ -37,6 +37,13 @@ function svg(body: string, status = 200, error = false, cache = 'MISS'): Respons
   return new Response(body, { status, headers: { ...SECURITY, 'Content-Type': 'image/svg+xml; charset=utf-8', 'Cache-Control': `public, max-age=60, s-maxage=${error ? 60 : 1800}`, 'CDN-Cache-Control': `max-age=${error ? 60 : 1800}`, 'X-Chart-Status': error ? 'error' : 'ok', 'X-Cache': cache, Vary: 'Accept-Encoding' } })
 }
 
+/** A stored copy carries the X-Cache it was written with, so restamp it on the way out. */
+function cacheHit(response: Response): Response {
+  const hit = new Response(response.body, response)
+  hit.headers.set('X-Cache', 'HIT')
+  return hit
+}
+
 /** Builder page; HEAD still answers with the same headers and no body. */
 function demo(request: Request): Response {
   return new Response(request.method === 'HEAD' ? null : demoPage, {
@@ -72,7 +79,7 @@ export default {
     try {
       const options = parseOptions(url)
       const cached = await caches.default.match(cacheKey)
-      if (cached) return cached
+      if (cached) return cacheHit(cached)
       const pkg = await loadPackage(`${match[1]}/${match[2]}`)
       const history = sliceHistory(
         pkg.history,
