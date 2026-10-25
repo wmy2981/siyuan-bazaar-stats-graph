@@ -10,6 +10,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: production
+  cancel-in-progress: false
+
 jobs:
   deploy:
     if: >-
@@ -20,6 +24,11 @@ jobs:
     environment: production
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.ref }}
+      - name: Verify workflow source commit
+        if: github.event_name == 'workflow_run'
+        run: test "$(git rev-parse HEAD)" = "${{ github.event.workflow_run.head_sha }}"
       - uses: actions/setup-node@v7
         with:
           node-version: 24
