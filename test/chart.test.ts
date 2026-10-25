@@ -96,6 +96,27 @@ describe('renderChart', () => {
     expect(svg).toMatch(/>1 \/ \d+<\/text>/);
   });
 
+  it('dashes the ratings line when it shares the right axis with the rating average', () => {
+    const svg = renderChart([
+      { t: time(1), d: 10, a: 5, c: 2 },
+      { t: time(2), d: 20, a: 5, c: 3 },
+    ], options({ metrics: ['downloads', 'rating', 'ratings'] }));
+    expect(svg).toMatch(/<polyline data-metric="ratings"[^>]*stroke-dasharray="12 9"/);
+    expect(svg).toMatch(/<polyline data-metric="ratings"[^>]*stroke-linecap="butt"/);
+    expect(svg).toMatch(/<line data-legend="ratings"[^>]*stroke-dasharray=/);
+    expect(svg).not.toMatch(/<polyline data-metric="rating"[^>]*stroke-dasharray/);
+    expect(svg).not.toMatch(/<line data-legend="rating"[^>]*stroke-dasharray/);
+  });
+
+  it('keeps the ratings line solid when the rating average is not drawn', () => {
+    const svg = renderChart([
+      { t: time(1), d: 10, c: 2 },
+      { t: time(2), d: 20, c: 3 },
+    ], options({ metrics: ['downloads', 'ratings'] }));
+    expect(svg).toContain('data-metric="ratings"');
+    expect(svg).not.toContain('stroke-dasharray');
+  });
+
   it('breaks a line at missing ratings instead of interpolating', () => {
     const svg = renderChart([
       { t: time(1), a: 2 },
