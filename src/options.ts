@@ -14,7 +14,7 @@ export function parseOptions(url: URL): ChartOptions & { start?: number; end?: n
   }
   const metricParam = one('metrics') || 'downloads'
   const selected = [...new Set(metricParam.split(',').map(v => v.trim()))]
-  if (selected.some(v => !metrics.includes(v as Metric))) throw new ChartError('Unknown metric', 'Use metrics=downloads,rating,ratings (one or more).')
+  if (!selected.length || selected.some(v => !metrics.includes(v as Metric))) throw new ChartError('Unknown metric', 'Use metrics=downloads,rating,ratings (one or more).')
   const theme = one('theme') || 'light'
   if (theme !== 'light' && theme !== 'dark') throw new ChartError('Unknown theme', 'Use theme=light or theme=dark.')
   const lang = one('lang') || 'en'

@@ -31,9 +31,20 @@ export default {
       if (!history.length) throw new ChartError('No history in this date range', 'Try range=all or an earlier start date.', 404)
       const chart = renderChart(history, options)
       const response = svg(chart)
+      response.headers.set('X-Fetched-At', new Date().toISOString())
+      if (pkg.stale) response.headers.set('X-Data-Stale', 'true')
       waitUntil(caches.default.put(cacheKey, response.clone()))
       return response
     } catch (cause) {
+      const previous = await caches.default.match(new Request(url.toString(), { method: 'GET' }))
+      const fetchedAt = previous ? Date.parse(previous.headers.get('X-Fetched-At') || '') : NaN
+      if (previous && Date.now() - fetchedAt < 86_400_000) {
+        const stale = new Response(previous.body, previous)
+        stale.headers.set('X-Chart-Status', 'stale')
+        stale.headers.set('X-Cache', 'STALE')
+        stale.headers.set('Cache-Control', 'public, max-age=60, s-maxage=60')
+        return stale
+      }
       const error = cause instanceof ChartError ? cause : new ChartError('Unable to draw this chart', 'Please try again in a minute.', 502)
       if (!(cause instanceof ChartError)) console.error('Chart generation failed', cause)
       const zh = url.searchParams.get('lang') === 'zh'

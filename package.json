@@ -14,6 +14,7 @@
     "test:watch": "vitest",
     "check": "npm run typecheck && npm test && npm run build"
   },
+  "overrides": { "undici": "7.30.1" },
   "devDependencies": {
     "@cloudflare/vite-plugin": "beta",
     "@types/node": "^24.10.0",

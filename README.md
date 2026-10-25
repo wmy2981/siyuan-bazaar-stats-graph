@@ -2,6 +2,8 @@
 
 Static SVG trend charts for [SiYuan Note](https://github.com/siyuan-note/siyuan) bazaar packages, powered by Cloudflare Workers and the public history from [TCOTC/siyuan-bazaar-stats](https://github.com/TCOTC/siyuan-bazaar-stats).
 
+![Live chart for the SiYuan sample plugin](https://siyuan-bazaar-stats-graph.2396772981.workers.dev/api/chart/siyuan-note/plugin-sample?metrics=downloads&range=90d&area=true)
+
 ## Embed in a README
 
 ```md
@@ -77,6 +79,8 @@ Add these repository secrets under **Settings → Secrets and variables → Acti
 
 - `CLOUDFLARE_API_TOKEN`: a token with permission to edit Workers in the account.
 - `CLOUDFLARE_ACCOUNT_ID`: the account ID shown in the Cloudflare dashboard.
+
+Then add the repository variable `CLOUDFLARE_DEPLOY_ENABLED` with value `true` under **Settings → Secrets and variables → Actions → Variables**. The opt-in variable prevents a failing deployment before credentials are configured.
 
 No credentials are committed to this repository. Forks can run the validation workflow without secrets; deployment only runs on `main` in the upstream repository.
 
