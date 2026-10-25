@@ -78,7 +78,6 @@
 			'snippet.url': 'Chart URL',
 			'snippet.html': 'HTML img tag',
 			'snippet.markdown': 'Markdown for README',
-			'action.copy': 'Copy',
 			'action.copied': 'Copied',
 			'action.copyFailed': 'Copy failed',
 			'alt.chart': 'SiYuan bazaar package trends for {repo}',
@@ -162,7 +161,6 @@
 			'snippet.url': '图表链接',
 			'snippet.html': 'HTML img 标签',
 			'snippet.markdown': 'README Markdown',
-			'action.copy': '复制',
 			'action.copied': '已复制',
 			'action.copyFailed': '复制失败',
 			'alt.chart': '{repo} 的思源集市包趋势',
@@ -355,9 +353,38 @@
 		const htmlUrl = escapeHtml(url);
 		const htmlAlt = escapeHtml(alt);
 		codeElements.url.textContent = url;
-		codeElements.html.textContent = `<img\n  src="${htmlUrl}"\n  alt="${htmlAlt}"\n  width="${width}"\n  height="${height}"\n>`;
-		codeElements.markdown.textContent = `![${alt}](${url})`;
+		codeElements.html.innerHTML = highlightHtml(`<img\n  src="${htmlUrl}"\n  alt="${htmlAlt}"\n  width="${width}"\n  height="${height}"\n>`);
+		codeElements.markdown.innerHTML = highlightMarkdown(`![${alt}](${url})`);
 		for (const button of copyButtons) button.disabled = false;
+	}
+
+	const HTML_TOKENS = /(<\/?)([A-Za-z][\w:-]*)|([A-Za-z_:][\w:.-]*)(\s*=\s*)("[^"]*"|'[^']*')|(\/?>)/g;
+	const MARKDOWN_TOKENS = /(!?\[)([^\]]*)(\]\()([^)]*)(\))/g;
+
+	function paintTokens(source, pattern, render) {
+		let html = '';
+		let index = 0;
+		for (const match of source.matchAll(pattern)) {
+			html += escapeHtml(source.slice(index, match.index)) + render(match);
+			index = match.index + match[0].length;
+		}
+		return html + escapeHtml(source.slice(index));
+	}
+
+	function token(name, text) {
+		return `<span class="tok-${name}">${escapeHtml(text)}</span>`;
+	}
+
+	function highlightHtml(source) {
+		return paintTokens(source, HTML_TOKENS, (match) => {
+			if (match[2] !== undefined) return token('punct', match[1]) + token('tag', match[2]);
+			if (match[3] !== undefined) return token('attr', match[3]) + token('punct', match[4]) + token('string', match[5]);
+			return token('punct', match[6]);
+		});
+	}
+
+	function highlightMarkdown(source) {
+		return paintTokens(source, MARKDOWN_TOKENS, (match) => token('punct', match[1]) + escapeHtml(match[2]) + token('punct', match[3]) + token('url', match[4]) + token('punct', match[5]));
 	}
 
 	function escapeHtml(value) {
@@ -495,19 +522,19 @@
 
 	function resetCopyButton(button) {
 		clearTimeout(button.copyTimer);
-		button.textContent = t('action.copy');
 		button.classList.remove('is-copied');
+		const label = t(button.dataset.i18nAriaLabel);
+		button.setAttribute('aria-label', label);
+		button.setAttribute('title', label);
 	}
 
 	function flashCopyButton(button, key) {
 		clearTimeout(button.copyTimer);
-		button.textContent = t(key);
 		button.classList.toggle('is-copied', key === 'action.copied');
+		button.setAttribute('aria-label', t(key));
+		button.setAttribute('title', t(key));
 		if (key === 'action.copied') {
-			button.copyTimer = setTimeout(() => {
-				button.textContent = t('action.copy');
-				button.classList.remove('is-copied');
-			}, 1700);
+			button.copyTimer = setTimeout(() => resetCopyButton(button), 1700);
 		}
 	}
 

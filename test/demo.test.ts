@@ -102,3 +102,59 @@ describe('chart preview status', () => {
     expect(styles).toMatch(/#chart-preview\[hidden\]\s*\{\s*display:\s*none;/)
   })
 })
+
+function plainText(markup: string) {
+  return markup
+    .replaceAll('</span>', '')
+    .replace(/<span class="tok-[a-z]+">/g, '')
+    .replaceAll('&lt;', '<')
+    .replaceAll('&gt;', '>')
+    .replaceAll('&quot;', '"')
+    .replaceAll('&amp;', '&')
+}
+
+describe('embed snippets', () => {
+  const svg = () => new Response('<svg xmlns="http://www.w3.org/2000/svg"></svg>', {
+    headers: { 'Content-Type': 'image/svg+xml', 'X-Chart-Status': 'ok' },
+  })
+
+  it('highlights the HTML snippet without changing the copied text', () => {
+    const { nodes } = loadDemo(vi.fn(async () => svg()))
+    const markup = nodes['#code-html'].innerHTML
+    expect(markup).toContain('<span class="tok-punct">&lt;</span><span class="tok-tag">img</span>')
+    expect(markup).toContain('<span class="tok-attr">src</span>')
+    expect(markup).toContain('<span class="tok-attr">alt</span>')
+    expect(markup).toContain('<span class="tok-attr">width</span>')
+    expect(markup).toContain('<span class="tok-attr">height</span>')
+    expect(markup).toContain('<span class="tok-string">&quot;https://charts.test/api/chart/owner/repo?')
+    expect(markup).toContain('<span class="tok-punct">&gt;</span>')
+    const url = nodes['#code-url'].textContent
+    expect(plainText(markup)).toBe(`<img\n  src="${url.replaceAll('&', '&amp;')}"\n  alt="SiYuan bazaar package trends for owner/repo"\n  width="800"\n  height="400"\n>`)
+  })
+
+  it('highlights the Markdown snippet without changing the copied text', () => {
+    const { nodes } = loadDemo(vi.fn(async () => svg()))
+    const markup = nodes['#code-markdown'].innerHTML
+    expect(markup).toContain('<span class="tok-punct">![</span>')
+    expect(markup).toContain('<span class="tok-punct">](</span>')
+    expect(markup).toContain('<span class="tok-url">https://charts.test/api/chart/owner/repo?')
+    expect(markup).toContain('<span class="tok-punct">)</span>')
+    const url = nodes['#code-url'].textContent
+    expect(plainText(markup)).toBe(`![SiYuan bazaar package trends for owner/repo](${url})`)
+  })
+
+  it('leaves the chart URL snippet unhighlighted', () => {
+    const { nodes } = loadDemo(vi.fn(async () => svg()))
+    expect(nodes['#code-url'].textContent).toMatch(/^https:\/\/charts\.test\/api\/chart\/owner\/repo\?/)
+    expect(nodes['#code-url'].innerHTML).toBeUndefined()
+  })
+
+  it('uses the GitHub syntax palette in both themes', () => {
+    const styles = readFileSync(new URL('../src/demo/demo.css', import.meta.url), 'utf8')
+    for (const color of [
+      '--code-tag: #116329;', '--code-attr: #0550ae;', '--code-string: #0a3069;', '--code-punct: #1f2328;',
+      '--code-tag: #7ee787;', '--code-attr: #79c0ff;', '--code-string: #a5d6ff;', '--code-punct: #e6edf3;',
+    ]) expect(styles).toContain(color)
+    expect(styles).toMatch(/\.snippet \.tok-url \{\s*color: var\(--code-string\);/)
+  })
+})
