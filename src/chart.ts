@@ -251,7 +251,7 @@ export function renderChart(points: ChartPoint[], options: ChartOptions): string
 
   svg.push(`<line x1="${num(left)}" y1="${num(titleSpace + plotHeight)}" x2="${num(width - right)}" y2="${num(titleSpace + plotHeight)}" stroke="${gridColor}"/>`);
   if (hasTime) {
-    const tickCount = maxTime === minTime ? 1 : width >= 640 ? 6 : width >= 440 ? 5 : 4;
+    const tickCount = maxTime === minTime ? 1 : Math.max(2, Math.min(width >= 640 ? 6 : width >= 440 ? 5 : 4, Math.floor(plotWidth / 88) + 1));
     const labels = new Set<string>();
     for (let i = 0; i < tickCount; i++) {
       const timestamp = minTime + (maxTime - minTime) * i / Math.max(1, tickCount - 1);

@@ -18,7 +18,7 @@ Replace `OWNER/REPO` with the package's GitHub repository. The service resolves 
 GET /api/chart/{owner}/{repo}
 ```
 
-The response is always a self-contained `image/svg+xml` document, including input and upstream errors. This keeps errors visible instead of producing a broken image in GitHub READMEs. Successful charts have a 30-minute shared cache; error charts expire after one minute. `X-Chart-Status` distinguishes `ok` from `error`.
+The response is always a self-contained `image/svg+xml` document, including input and upstream errors. This keeps errors visible instead of producing a broken image in GitHub READMEs. Successful charts have a 30-minute shared cache; error charts expire after one minute. During an upstream outage, the most recent successful chart may be served for up to 24 hours with `X-Chart-Status: stale` and `X-Cache: STALE`. Otherwise `X-Chart-Status` distinguishes `ok` from `error`.
 
 ### Parameters
 
@@ -59,7 +59,7 @@ This project does not copy or redistribute a separate history database. Upstream
 
 ## Development
 
-Requires Node.js 22.18 or newer and the [Cloudflare `cf` CLI](https://developers.cloudflare.com/cf/).
+Requires Node.js 22.23+ or 24.22+ and the [Cloudflare `cf` CLI](https://developers.cloudflare.com/cf/).
 
 ```sh
 npm install

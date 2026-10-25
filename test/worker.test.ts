@@ -33,6 +33,15 @@ describe('SVG Worker', () => {
     expect(response.headers.get('cache-control')).toContain('s-maxage=60')
     expect(await response.text()).toContain('<svg')
   })
+  it('serves the last successful chart for one day during upstream failure', async () => {
+    const cached = new Response('<svg>previous</svg>', { headers: { 'X-Fetched-At': new Date().toISOString(), 'X-Chart-Status': 'ok' } })
+    vi.mocked(caches.default.match).mockResolvedValueOnce(undefined).mockResolvedValueOnce(cached)
+    vi.mocked(fetch).mockImplementation(async () => { throw new Error('offline') })
+    const response = await worker.fetch(new Request('https://charts.test/api/chart/owner/repo'))
+    expect(response.headers.get('x-chart-status')).toBe('stale')
+    expect(response.headers.get('x-cache')).toBe('STALE')
+    expect(await response.text()).toBe('<svg>previous</svg>')
+  })
   it('returns an SVG for unsupported methods', async () => {
     const response = await worker.fetch(new Request('https://charts.test/api/chart/owner/repo', { method: 'POST' }))
     expect(response.headers.get('x-chart-status')).toBe('error')

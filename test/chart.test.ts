@@ -136,6 +136,8 @@ describe('renderChart', () => {
     const firstLegend = Number(/<text x="[\d.]+" y="([\d.]+)"[^>]*>Downloads/.exec(svg)?.[1]);
     expect(baseline).toBeLessThan(firstLegend);
     expect(200 - baseline).toBeLessThanOrEqual(67);
+    const dates = [...svg.matchAll(/font-size="10">(2024-[^<]+)<\/text>/g)].map(match => match[1]);
+    expect(dates.length).toBeLessThanOrEqual(3);
   });
 });
 
