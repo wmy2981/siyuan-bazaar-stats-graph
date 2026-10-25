@@ -103,6 +103,10 @@ export const ERRORS = {
     en: { message: 'History data is too large', hint: 'Use a narrower date range.' },
     zh: { message: '历史数据过大', hint: '请缩小时间范围。' },
   },
+  unsupportedSchema: {
+    en: { message: 'Unsupported upstream data format', hint: 'Upstream publishes schema {{schema}}; this service supports {{supported}} and needs an update before charts work again.' },
+    zh: { message: '上游数据格式不受支持', hint: '上游格式版本为 {{schema}}，本服务支持 {{supported}}，需要更新后才能继续出图。' },
+  },
   historyMalformed: {
     en: { message: 'History data is malformed', hint: 'Please try again after the upstream data is repaired.' },
     zh: { message: '历史数据格式错误', hint: '请等待上游数据修复后重试。' },

@@ -208,6 +208,25 @@ describe('localized SVG errors', () => {
       vi.mocked(fetch).mockImplementation(implementation)
     }
   })
+  it('shows an unsupported schema as a visible error instead of a chart', async () => {
+    const implementation = vi.mocked(fetch).getMockImplementation()!
+    vi.mocked(fetch).mockImplementation(async input => {
+      const url = String(input)
+      if (url.endsWith('/summary.json')) return Response.json(summary)
+      if (url.endsWith('/packages/sample.json')) return Response.json({ ...detail, schema: 2 })
+      return new Response('not found', { status: 404 })
+    })
+    try {
+      const response = await worker.fetch(new Request('https://charts.test/api/chart/owner/repo?lang=en'))
+      expect(response.headers.get('x-chart-status')).toBe('error')
+      const body = await response.text()
+      expect(body).toContain('Unsupported upstream data format')
+      expect(body).toContain('2')
+      expect(body).not.toContain('data-metric=')
+    } finally {
+      vi.mocked(fetch).mockImplementation(implementation)
+    }
+  })
   it('localizes the hint for an unsupported method', async () => {
     for (const [lang, message, hint] of [
       ['en', 'Method not allowed', 'Use a GET request for this SVG endpoint.'],

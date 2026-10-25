@@ -67,10 +67,11 @@ The SVG is intentionally static: no scripts, external resources, cookies or runt
 ## Data
 
 - Package repository mapping and current catalog: official SiYuan bazaar indexes.
-- Historical values: TCOTC/siyuan-bazaar-stats, scheduled to collect every 30 minutes when values change. GitHub's scheduled workflows may be delayed by hours; this service cannot publish observations that the upstream has not collected yet.
-- Preferred history: the upstream generated package detail JSON; raw monthly snapshots are used as fallback.
-- Charts display the latest observation date. The source began collecting history in August 2026; earlier dates have no data.
-- Every chart request after the 30-minute edge-cache lifetime fetches the current upstream package data without an additional CDN cache layer. New upstream observations therefore appear after the upstream site finishes publishing and the chart cache expires. Raw GitHub snapshots remain available as fallback.
+- History comes from TCOTC/siyuan-bazaar-stats as upstream package detail JSON, with raw monthly snapshots as fallback. Observations are change-only, collected every 30 minutes at best since August 2026; GitHub scheduling may delay them by hours. Charts show the latest observation date.
+- Timestamps are the bazaar's `publishedAt`, not the collection time, so spacing is uneven and a quiet period has no point.
+- Delisted packages leave the upstream artifacts, so their charts report `packageNotFound`.
+- Artifacts carry `schema`; any other value is shown as an error rather than read with possibly changed field meanings. Fields, URLs and snapshot semantics are frozen in the upstream [data contract](https://github.com/TCOTC/siyuan-bazaar-stats/blob/main/docs/data-contract.md).
+- Charts are cached for 30 minutes, so a new observation appears up to 30 minutes after upstream publishes it.
 
 This project does not copy or redistribute a separate history database. Upstream availability and corrections flow into subsequently refreshed charts.
 

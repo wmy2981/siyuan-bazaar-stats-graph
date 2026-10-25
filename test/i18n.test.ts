@@ -4,7 +4,7 @@ import { ERRORS, localizeError, type ErrorCode, type ErrorValues } from '../src/
 
 const codes = Object.keys(ERRORS) as ErrorCode[]
 const CJK = /[\u4e00-\u9fff]/
-const values: ErrorValues = { name: 'width', min: 320, max: 1600, repo: 'owner/repo', status: 502 }
+const values: ErrorValues = { name: 'width', min: 320, max: 1600, repo: 'owner/repo', status: 502, schema: 2, supported: 1 }
 
 describe('error text catalog', () => {
   it('provides an English and a Chinese message and hint for every code', () => {
