@@ -4,6 +4,8 @@
 
 为 [SiYuan Note](https://github.com/siyuan-note/siyuan) 集市包生成静态 SVG 趋势图，由 Cloudflare Workers 驱动，数据来自 [TCOTC/siyuan-bazaar-stats](https://github.com/TCOTC/siyuan-bazaar-stats) 公开的历史记录。
 
+*示例图（使用实时数据）：*
+
 ![wmy2981/ai-title-siyuan 的实时图表](https://siyuan-bazaar-stats-graph.sr1.cc.cd/api/chart/wmy2981/ai-title-siyuan?metrics=downloads&range=90d&area=true&lang=zh)
 
 ## 图表生成器
