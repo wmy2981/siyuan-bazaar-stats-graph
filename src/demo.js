@@ -46,7 +46,7 @@
 			'theme.light': 'Light',
 			'theme.dark': 'Dark',
 			'field.language': 'Chart language',
-			'lang.auto': 'Follow page',
+			'lang.auto': 'Auto (browser)',
 			'lang.en': 'English',
 			'lang.zh': '中文',
 			'field.size': 'Size',
@@ -125,7 +125,7 @@
 			'theme.light': '浅色',
 			'theme.dark': '深色',
 			'field.language': '图表语言',
-			'lang.auto': '跟随页面',
+			'lang.auto': '跟随浏览器',
 			'lang.en': 'English',
 			'lang.zh': '中文',
 			'field.size': '尺寸',
@@ -346,8 +346,7 @@
 		if (!form.elements.title.checked) params.set('title', 'false');
 		if (!form.elements.legend.checked) params.set('legend', 'false');
 		if (!form.elements.grid.checked) params.set('grid', 'false');
-		const chartLang = langSelect.value === 'auto' ? pageLang : langSelect.value;
-		params.set('lang', chartLang);
+		params.set('lang', langSelect.value);
 		const path = repo.split('/').map(encodeURIComponent).join('/');
 		return `${location.origin}/api/chart/${path}?${params.toString().replaceAll('%2C', ',')}`;
 	}

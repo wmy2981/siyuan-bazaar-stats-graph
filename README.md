@@ -10,7 +10,7 @@ Static SVG trend charts for [SiYuan Note](https://github.com/siyuan-note/siyuan)
 
 ## Chart builder
 
-Open the [interactive chart builder](https://siyuan-bazaar-stats-graph.sr1.cc.cd/) to choose a repository and every chart parameter, preview the SVG live, and copy the chart URL, HTML image tag, or README Markdown. The page follows your browser language, and the chart language follows the page by default.
+Open the [interactive chart builder](https://siyuan-bazaar-stats-graph.sr1.cc.cd/) to choose a repository and every chart parameter, preview the SVG live, and copy the chart URL, HTML image tag, or README Markdown. The chart defaults to `lang=auto`, so embedded charts follow each reader's browser language.
 
 ## Embed in a README
 
