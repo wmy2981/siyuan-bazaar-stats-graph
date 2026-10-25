@@ -130,7 +130,11 @@ describe('embed snippets', () => {
     expect(markup).toContain('<span class="tok-string">&quot;https://charts.test/api/chart/owner/repo?')
     expect(markup).toContain('<span class="tok-punct">&gt;</span>')
     const url = nodes['#code-url'].textContent
-    expect(plainText(markup)).toBe(`<img\n  src="${url.replaceAll('&', '&amp;')}"\n  alt="SiYuan bazaar package trends for owner/repo"\n  width="800"\n  height="400"\n>`)
+    expect(plainText(markup)).toBe(`<img\n  src="${url}"\n  alt="SiYuan bazaar package trends for owner/repo"\n  width="800"\n  height="400"\n>`)
+    // The query string is escaped exactly once, so the copied snippet keeps a single "&".
+    expect(url).toContain('&')
+    expect(plainText(markup)).not.toContain('&amp;')
+    expect(markup).not.toContain('&amp;amp;')
   })
 
   it('highlights the Markdown snippet without changing the copied text', () => {
