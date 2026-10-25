@@ -1,8 +1,8 @@
 import { waitUntil } from 'cloudflare:workers'
 import { renderAutoErrorChart, renderChart, renderErrorChart } from './chart'
-import demoHtml from './demo.html?raw'
-import demoScript from './demo.js?raw'
-import demoStyles from './demo.css?raw'
+import demoHtml from './demo/demo.html?raw'
+import demoScript from './demo/demo.js?raw'
+import demoStyles from './demo/demo.css?raw'
 import { ChartError, loadPackage } from './data'
 import { parseOptions, sliceHistory } from './options'
 
