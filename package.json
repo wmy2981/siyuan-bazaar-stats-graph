@@ -2,6 +2,7 @@
   "name": "siyuan-bazaar-stats-graph",
   "version": "1.0.0",
   "private": true,
+  "license": "MIT",
   "type": "module",
   "engines": { "node": "^22.23.0 || >=24.22.0" },
   "scripts": {

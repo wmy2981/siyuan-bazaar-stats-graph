@@ -88,6 +88,8 @@ npm run check        # 全部本地检查
 npm run deploy       # cf deploy，需先 cf auth login
 ```
 
-## 许可证
+## 许可与署名
 
-[MIT](./LICENSE)
+本仓库源代码采用 [MIT](./LICENSE)。
+
+图表展示的统计数据来自 [TCOTC/siyuan-bazaar-stats](https://github.com/TCOTC/siyuan-bazaar-stats)，以 [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) 授权发布。本服务按请求实时读取这些数据，不再分发数据集；署名要求、使用的字段、所做处理以及图表图片的再使用见 [NOTICE.md](./NOTICE.md)。`bazaar.b3logfile.com`、`oss.b3logfile.com`、`siyuan-sync.b3logfile.com` 上由平台提供的文件与图标权利归其提供方，不在这两个许可的覆盖范围内。本项目与思源笔记官方及思源集市无隶属关系，未获其背书。
