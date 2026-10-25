@@ -1,12 +1,26 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-page-theme-mode="auto" data-color-mode="light">
 <head>
 	<meta charset="utf-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1">
 	<title>Bazaar Graph — SiYuan package chart builder</title>
 	<meta name="description" content="Build an embeddable SVG trend chart for any SiYuan bazaar package.">
-	<meta name="color-scheme" content="light">
-	<meta name="theme-color" content="#eef3ef">
+	<meta name="color-scheme" content="light dark">
+	<meta name="theme-color" content="#edf2ee">
+	<script>
+		(() => {
+			const key = 'siyuan-bazaar-page-theme';
+			let mode = 'auto';
+			try {
+				const stored = localStorage.getItem(key);
+				if (stored === 'auto' || stored === 'light' || stored === 'dark') mode = stored;
+			} catch {}
+			const dark = mode === 'dark' || (mode === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches);
+			document.documentElement.dataset.pageThemeMode = mode;
+			document.documentElement.dataset.colorMode = dark ? 'dark' : 'light';
+			document.querySelector('meta[name="theme-color"]').setAttribute('content', dark ? '#0d1713' : '#edf2ee');
+		})();
+	</script>
 	<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='5' fill='%2312231f'/%3E%3Cpath d='M6 23V8M6 23h20' fill='none' stroke='%238ea79c' stroke-width='1.5'/%3E%3Cpath d='M9 20l5-6 4 3 6-8' fill='none' stroke='%236fe0cb' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
 	<style>/*__STYLE__*/</style>
 </head>
@@ -24,9 +38,22 @@
 			</a>
 			<nav class="topbar-nav" aria-label="Site" data-i18n-aria-label="aria.site">
 				<a class="source-link" href="https://github.com/wmy2981/siyuan-bazaar-stats-graph" target="_blank" rel="noreferrer" data-i18n="nav.source">Source</a>
-				<div class="language-switch" role="group" aria-label="Page language" data-i18n-aria-label="aria.pageLanguage">
-					<button type="button" class="language-option" data-page-lang="en" aria-pressed="true">EN</button>
-					<button type="button" class="language-option" data-page-lang="zh" aria-pressed="false">中文</button>
+				<div class="topbar-controls">
+					<div class="page-theme-switch" role="group" aria-label="Page theme" data-i18n-aria-label="aria.pageTheme">
+						<button type="button" class="page-theme-option" data-page-theme-mode="auto" aria-pressed="true" title="Follow system" data-i18n-title="pageTheme.auto" data-i18n-aria-label="pageTheme.auto">
+							<svg viewBox="0 0 16 16" aria-hidden="true"><rect x="1.5" y="2.5" width="13" height="9" rx="1"/><path d="M5.5 14h5M8 11.5V14"/></svg>
+						</button>
+						<button type="button" class="page-theme-option" data-page-theme-mode="light" aria-pressed="false" title="Light" data-i18n-title="pageTheme.light" data-i18n-aria-label="pageTheme.light">
+							<svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="3"/><path d="M8 1v1.6M8 13.4V15M1 8h1.6M13.4 8H15M3 3l1.1 1.1M11.9 11.9 13 13M13 3l-1.1 1.1M4.1 11.9 3 13"/></svg>
+						</button>
+						<button type="button" class="page-theme-option" data-page-theme-mode="dark" aria-pressed="false" title="Dark" data-i18n-title="pageTheme.dark" data-i18n-aria-label="pageTheme.dark">
+							<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M13.3 10.1A5.8 5.8 0 0 1 5.9 2.7 5.8 5.8 0 1 0 13.3 10.1Z"/></svg>
+						</button>
+					</div>
+					<div class="language-switch" role="group" aria-label="Page language" data-i18n-aria-label="aria.pageLanguage">
+						<button type="button" class="language-option" data-page-lang="en" aria-pressed="true">EN</button>
+						<button type="button" class="language-option" data-page-lang="zh" aria-pressed="false">中文</button>
+					</div>
 				</div>
 			</nav>
 		</header>

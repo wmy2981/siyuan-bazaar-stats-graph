@@ -8,7 +8,11 @@
 			'skip': 'Skip to chart builder',
 			'brand.tag': 'SiYuan chart builder',
 			'aria.site': 'Site',
+			'aria.pageTheme': 'Page theme',
 			'aria.pageLanguage': 'Page language',
+			'pageTheme.auto': 'Follow system',
+			'pageTheme.light': 'Light',
+			'pageTheme.dark': 'Dark',
 			'aria.copyUrl': 'Copy chart URL',
 			'aria.copyHtml': 'Copy HTML image tag',
 			'aria.copyMarkdown': 'Copy Markdown for README',
@@ -87,7 +91,11 @@
 			'skip': '跳到图表生成器',
 			'brand.tag': '思源图表生成器',
 			'aria.site': '站点导航',
+			'aria.pageTheme': '页面主题',
 			'aria.pageLanguage': '页面语言',
+			'pageTheme.auto': '跟随系统',
+			'pageTheme.light': '浅色',
+			'pageTheme.dark': '深色',
 			'aria.copyUrl': '复制图表链接',
 			'aria.copyHtml': '复制 HTML 图片标签',
 			'aria.copyMarkdown': '复制 README Markdown',
@@ -162,6 +170,9 @@
 		},
 	};
 
+	const THEME_STORAGE_KEY = 'siyuan-bazaar-page-theme';
+	const PAGE_THEME_MODES = ['auto', 'light', 'dark'];
+	const systemDark = window.matchMedia('(prefers-color-scheme: dark)');
 	const form = document.querySelector('#chart-form');
 	if (!form) return;
 
@@ -183,6 +194,8 @@
 	const renderLabel = document.querySelector('#render-label');
 	const liveStatus = document.querySelector('#live-status');
 	const pageLanguageButtons = [...document.querySelectorAll('[data-page-lang]')];
+	const pageThemeButtons = [...document.querySelectorAll('button[data-page-theme-mode]')];
+	const pageThemeMeta = document.querySelector('meta[name="theme-color"]');
 	const metricInputs = [...form.querySelectorAll('input[name="metrics"]')];
 	const rangeInputs = [...form.querySelectorAll('input[name="range"]')];
 	const themeInputs = [...form.querySelectorAll('input[name="theme"]')];
@@ -197,6 +210,7 @@
 	const urlDefaults = { width: 800, height: 400 };
 
 	let pageLang = detectPageLanguage();
+	let pageThemeMode = PAGE_THEME_MODES.includes(document.documentElement.dataset.pageThemeMode) ? document.documentElement.dataset.pageThemeMode : 'auto';
 	let repoTouched = false;
 	let updateTimer;
 	let metricsNoticeShown = false;
@@ -204,6 +218,22 @@
 	function detectPageLanguage() {
 		const preferred = navigator.languages?.[0] || navigator.language || 'en';
 		return /^zh\b/i.test(preferred) ? 'zh' : 'en';
+	}
+
+	function applyPageTheme(mode, persist = false) {
+		pageThemeMode = PAGE_THEME_MODES.includes(mode) ? mode : 'auto';
+		const resolved = pageThemeMode === 'auto' ? (systemDark.matches ? 'dark' : 'light') : pageThemeMode;
+		document.documentElement.dataset.pageThemeMode = pageThemeMode;
+		document.documentElement.dataset.colorMode = resolved;
+		pageThemeMeta?.setAttribute('content', resolved === 'dark' ? '#0d1713' : '#edf2ee');
+		for (const button of pageThemeButtons) {
+			button.setAttribute('aria-pressed', String(button.dataset.pageThemeMode === pageThemeMode));
+		}
+		if (persist) {
+			try {
+				localStorage.setItem(THEME_STORAGE_KEY, pageThemeMode);
+			} catch {}
+		}
 	}
 
 	function t(key, values) {
@@ -465,6 +495,9 @@
 		for (const element of document.querySelectorAll('[data-i18n-aria-label]')) {
 			element.setAttribute('aria-label', t(element.dataset.i18nAriaLabel));
 		}
+		for (const element of document.querySelectorAll('[data-i18n-title]')) {
+			element.setAttribute('title', t(element.dataset.i18nTitle));
+		}
 		for (const button of pageLanguageButtons) {
 			button.setAttribute('aria-pressed', String(button.dataset.pageLang === language));
 		}
@@ -481,6 +514,14 @@
 			if (button.dataset.pageLang !== pageLang) applyLanguage(button.dataset.pageLang);
 		});
 	}
+
+	for (const button of pageThemeButtons) {
+		button.addEventListener('click', () => applyPageTheme(button.dataset.pageThemeMode, true));
+	}
+
+	systemDark.addEventListener('change', () => {
+		if (pageThemeMode === 'auto') applyPageTheme('auto');
+	});
 
 	repoInput.addEventListener('blur', () => {
 		repoTouched = true;
@@ -558,5 +599,6 @@
 	}
 
 	syncCustomDates();
+	applyPageTheme(pageThemeMode);
 	applyLanguage(pageLang);
 })();
