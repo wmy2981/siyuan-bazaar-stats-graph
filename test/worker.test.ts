@@ -20,6 +20,7 @@ describe('chart builder page', () => {
     expect(response.headers.get('content-type')).toContain('text/html')
     expect(response.headers.get('content-security-policy')).toContain("script-src 'unsafe-inline'")
     expect(response.headers.get('content-security-policy')).toContain('https://static.cloudflareinsights.com')
+    expect(response.headers.get('content-security-policy')).toContain("img-src 'self' data: blob:")
     expect(body).toContain('id="chart-form"')
     expect(body).toContain('value="wmy2981/ai-title-siyuan"')
     expect(body).toContain('data-copy-key="markdown"')

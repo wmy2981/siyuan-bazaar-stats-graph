@@ -67,6 +67,7 @@
 			'preview.ready': 'Ready',
 			'preview.waitingState': 'Waiting',
 			'preview.errorState': 'Failed',
+			'preview.staleState': 'Stale data',
 			'preview.open': 'Open SVG',
 			'preview.waiting': 'Complete the repository to render a chart.',
 			'preview.dates': 'Fix the dates to render a chart.',
@@ -150,6 +151,7 @@
 			'preview.ready': '已就绪',
 			'preview.waitingState': '等待输入',
 			'preview.errorState': '加载失败',
+			'preview.staleState': '陈旧数据',
 			'preview.open': '打开 SVG',
 			'preview.waiting': '填写仓库后即可渲染图表。',
 			'preview.dates': '请先修正日期范围。',
@@ -213,6 +215,9 @@
 	let pageThemeMode = PAGE_THEME_MODES.includes(document.documentElement.dataset.pageThemeMode) ? document.documentElement.dataset.pageThemeMode : 'auto';
 	let repoTouched = false;
 	let updateTimer;
+	let previewController;
+	let previewObjectUrl;
+	let previewRequest = 0;
 	let metricsNoticeShown = false;
 
 	function detectPageLanguage() {
@@ -300,6 +305,7 @@
 			ready: 'preview.ready',
 			waiting: 'preview.waitingState',
 			error: 'preview.errorState',
+			stale: 'preview.staleState',
 		};
 		renderLabel.textContent = t(labels[kind]);
 	}
@@ -311,6 +317,9 @@
 	}
 
 	function setPreviewError() {
+		previewController?.abort();
+		if (previewObjectUrl) URL.revokeObjectURL(previewObjectUrl);
+		previewObjectUrl = undefined;
 		plotStage.classList.remove('is-loading');
 		plotStage.setAttribute('aria-busy', 'false');
 		chartPreview.hidden = true;
@@ -320,6 +329,9 @@
 	}
 
 	function setEmpty(message) {
+		previewController?.abort();
+		if (previewObjectUrl) URL.revokeObjectURL(previewObjectUrl);
+		previewObjectUrl = undefined;
 		plotStage.classList.remove('is-loading');
 		plotStage.setAttribute('aria-busy', 'false');
 		chartPreview.hidden = true;
@@ -391,11 +403,29 @@
 		chartPreview.width = width;
 		chartPreview.height = height;
 		setLoading();
-		if (chartPreview.src !== url) chartPreview.src = url;
-		else if (chartPreview.complete && chartPreview.naturalWidth) {
-			plotStage.classList.remove('is-loading');
-			plotStage.setAttribute('aria-busy', 'false');
-			setRenderState('ready');
+		loadPreview(url);
+	}
+
+	async function loadPreview(url) {
+		const request = ++previewRequest;
+		previewController?.abort();
+		previewController = new AbortController();
+		if (previewObjectUrl) URL.revokeObjectURL(previewObjectUrl);
+		previewObjectUrl = undefined;
+		try {
+			const response = await fetch(url, { signal: previewController.signal });
+			const status = response.headers.get('X-Chart-Status');
+			const body = await response.blob();
+			if (request !== previewRequest) return;
+			if (!response.ok || !['ok', 'error', 'stale'].includes(status) || !body.type.includes('image/svg+xml')) {
+				setPreviewError();
+				return;
+			}
+			previewObjectUrl = URL.createObjectURL(body);
+			chartPreview.dataset.chartStatus = status;
+			chartPreview.src = previewObjectUrl;
+		} catch (error) {
+			if (error.name !== 'AbortError' && request === previewRequest) setPreviewError();
 		}
 	}
 
@@ -572,7 +602,7 @@
 		plotStage.setAttribute('aria-busy', 'false');
 		previewEmpty.hidden = true;
 		chartPreview.hidden = false;
-		setRenderState('ready');
+		setRenderState(chartPreview.dataset.chartStatus === 'stale' ? 'stale' : chartPreview.dataset.chartStatus === 'error' ? 'error' : 'ready');
 	});
 
 	chartPreview.addEventListener('error', setPreviewError);
