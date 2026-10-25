@@ -78,7 +78,7 @@ npm run deploy       # cf deploy, after cf auth login
 
 `CI` runs on every branch push, every pull request and manual dispatch. It runs tests, type checks and `cf deploy --prebuilt --dry-run`.
 
-`Deploy` runs on pushes to `main`, after a successful `CI` run on `main`, or by manual dispatch. It rebuilds the same commit and deploys with `cf deploy --prebuilt`. Manual deployment does not require a preceding CI run; the automatic `workflow_run` path does.
+`Deploy` runs after a successful `CI` run on `main`, or by manual dispatch. It rebuilds the same commit and deploys with `cf deploy --prebuilt`. Manual deployment does not require a preceding CI run; the automatic `workflow_run` path does.
 
 Add these repository secrets under **Settings → Secrets and variables → Actions**:
 
