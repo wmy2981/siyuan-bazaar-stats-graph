@@ -81,5 +81,24 @@ describe('chart preview status', () => {
     await vi.waitFor(() => expect(nodes['#render-label'].textContent).toBe('Failed'))
     expect(nodes['#preview-empty'].textContent).toBe('The chart could not be loaded.')
     expect(nodes['#chart-preview'].hidden).toBe(true)
+    expect(nodes['#chart-preview'].removeAttribute).toHaveBeenCalledWith('src')
+  })
+
+  it('hides a broken image instead of showing its alt text', async () => {
+    const response = new Response('<svg xmlns="http://www.w3.org/2000/svg"></svg>', {
+      headers: { 'Content-Type': 'image/svg+xml', 'X-Chart-Status': 'ok' },
+    })
+    const { nodes } = loadDemo(vi.fn(async () => response))
+    await vi.waitFor(() => expect(nodes['#chart-preview'].src).toMatch(/^blob:/))
+    nodes['#chart-preview'].listeners.error()
+    expect(nodes['#chart-preview'].hidden).toBe(true)
+    expect(nodes['#chart-preview'].removeAttribute).toHaveBeenCalledWith('src')
+    expect(nodes['#preview-empty'].hidden).toBe(false)
+    expect(nodes['#preview-empty'].textContent).toBe('The chart could not be loaded.')
+  })
+
+  it('keeps the preview image hidden regardless of its display style', () => {
+    const styles = readFileSync(new URL('../src/demo/demo.css', import.meta.url), 'utf8')
+    expect(styles).toMatch(/#chart-preview\[hidden\]\s*\{\s*display:\s*none;/)
   })
 })

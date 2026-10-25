@@ -1011,6 +1011,10 @@ input[aria-invalid="true"] {
 	transition: opacity 160ms ease;
 }
 
+#chart-preview[hidden] {
+	display: none;
+}
+
 .plot-stage.is-loading #chart-preview {
 	opacity: 0.3;
 }

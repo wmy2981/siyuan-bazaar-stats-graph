@@ -323,6 +323,7 @@
 		plotStage.classList.remove('is-loading');
 		plotStage.setAttribute('aria-busy', 'false');
 		chartPreview.hidden = true;
+		chartPreview.removeAttribute('src');
 		previewEmpty.textContent = t('preview.error');
 		previewEmpty.hidden = false;
 		setRenderState('error');
