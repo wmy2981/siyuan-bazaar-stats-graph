@@ -1,3 +1,4 @@
+/* Design tokens: colours, radii and type scale for both page themes. */
 :root {
 	color-scheme: light;
 	--paper: #edf2ee;
@@ -171,6 +172,7 @@ select {
 	outline-offset: 3px;
 }
 
+/* Accessibility helpers. */
 .sr-only {
 	position: absolute !important;
 	width: 1px !important;
@@ -199,6 +201,7 @@ select {
 	transform: translateY(0);
 }
 
+/* Page shell and header bar. */
 .page {
 	width: min(var(--page), calc(100% - 48px));
 	margin: 0 auto;
@@ -361,6 +364,7 @@ select {
 	background: var(--solid);
 }
 
+/* Hero copy above the builder. */
 .hero {
 	display: grid;
 	grid-template-columns: minmax(0, 1.45fr) minmax(250px, 0.55fr);
@@ -430,6 +434,7 @@ select {
 	content: "";
 }
 
+/* Section headings shared by the builder, preview and embed blocks. */
 .section-heading {
 	display: flex;
 	align-items: flex-end;
@@ -479,6 +484,7 @@ select {
 	text-align: right;
 }
 
+/* Builder form: label column plus control column per row. */
 .control-deck {
 	border: 1px solid var(--line-strong);
 	border-top: 2px solid var(--rule-strong);
@@ -570,6 +576,7 @@ input[aria-invalid="true"] {
 	display: none;
 }
 
+/* Metric checkboxes and their colour dots. */
 .metric-options {
 	display: flex;
 	flex-wrap: wrap;
@@ -635,6 +642,7 @@ input[aria-invalid="true"] {
 	background: var(--amber);
 }
 
+/* Segmented radio groups (range, theme, size presets). */
 .segmented {
 	display: flex;
 	flex-wrap: wrap;
@@ -677,6 +685,7 @@ input[aria-invalid="true"] {
 	outline-offset: 1px;
 }
 
+/* Custom start/end date fields, shown only for the custom range. */
 .custom-dates {
 	display: flex;
 	flex-wrap: wrap;
@@ -711,6 +720,7 @@ input[aria-invalid="true"] {
 	font-size: 13px;
 }
 
+/* Appearance block: theme, chart language and output size. */
 .appearance-grid {
 	display: grid;
 	grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -937,6 +947,7 @@ input[aria-invalid="true"] {
 	pointer-events: none;
 }
 
+/* Live preview: toolbar, stage and loading overlay. */
 .plot-figure {
 	margin: 0;
 	border: 1px solid var(--rule-strong);
@@ -1055,6 +1066,7 @@ input[aria-invalid="true"] {
 	line-height: 1.5;
 }
 
+/* Embed snippets and their syntax-highlight tokens. */
 .snippet-list {
 	display: grid;
 	gap: 11px;
@@ -1175,6 +1187,7 @@ input[aria-invalid="true"] {
 	color: var(--code-string);
 }
 
+/* Footer credits. */
 .footer {
 	display: flex;
 	align-items: baseline;
@@ -1229,6 +1242,7 @@ input[aria-invalid="true"] {
 	}
 }
 
+/* Responsive adjustments: stack columns before the layout breaks. */
 @media (max-width: 960px) {
 	.hero {
 		grid-template-columns: 1fr;
@@ -1471,6 +1485,7 @@ input[aria-invalid="true"] {
 	}
 }
 
+/* Respect a reduced-motion preference. */
 @media (prefers-reduced-motion: reduce) {
 	html {
 		scroll-behavior: auto;

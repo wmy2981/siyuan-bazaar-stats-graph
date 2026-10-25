@@ -1,18 +1,39 @@
+/**
+ * Loads the observed history for one bazaar package.
+ *
+ * Resolution order: a GitHub repository is mapped to a bazaar package name via the
+ * stats summary (GitHub Pages mirror first, primary host second), then the generated
+ * per-package history is fetched. When that fails, the raw monthly snapshots are
+ * replayed instead and the result is marked stale so the chart can advertise it.
+ */
 import type { ChartPoint } from './chart'
 import { localizeError, type ErrorCode, type ErrorValues } from './i18n'
 
+/** Official SiYuan bazaar catalog (Qiniu CDN); used only to resolve a name. */
 const INDEX_URL = 'https://bazaar.b3logfile.com/bazaar/index.json'
+/** Generated stats site: package name lookup and per-package history. */
 const SUMMARY_URL = 'https://siyuan-bazaar-stats.mytemos.com/data/summary.json'
+/** GitHub Pages mirror of the stats site, tried first for edge latency. */
 const SUMMARY_MIRROR_URL = 'https://github.mytemos.com/siyuan-bazaar-stats/data/summary.json'
+/** Per-package history on the generated stats site. */
 const PACKAGE_URL = 'https://siyuan-bazaar-stats.mytemos.com/data/packages/'
+/** GitHub Pages mirror of the per-package history. */
 const PACKAGE_MIRROR_URL = 'https://github.mytemos.com/siyuan-bazaar-stats/data/packages/'
+/** Raw monthly snapshots in TCOTC/siyuan-bazaar-stats; the last-resort source. */
 const RAW_URL = 'https://raw.githubusercontent.com/TCOTC/siyuan-bazaar-stats/main/data/snapshots'
+/** Refuse oversized monthly snapshots instead of buffering them inside a Worker. */
 const MAX_SNAPSHOT_BYTES = 24 * 1024 * 1024
 
+/**
+ * Upstream record shapes. The collector abbreviates every metric key to keep the
+ * snapshots small: d = downloads, a = average rating, c = rating count and
+ * x = the five-star histogram (index 0 is one star).
+ */
 interface Stats { d?: number; a?: number; c?: number; x?: number[] }
 interface Snapshot { t: number; full?: boolean; p: Record<string, Stats> }
 interface PackageDetail { name: string; repo: string; displayName?: string; current: Stats; history: ChartPoint[] }
 
+/** Error carrying a localisable code, its substitutions and the status to log. */
 export class ChartError extends Error {
   readonly hint: string
   constructor(readonly code: ErrorCode, readonly values: ErrorValues = {}, readonly status = 400) {
@@ -22,8 +43,13 @@ export class ChartError extends Error {
   }
 }
 
+/** Normalised history handed to the renderer. */
 export interface PackageHistory { name: string; displayName: string; history: ChartPoint[]; stale?: boolean }
 
+/**
+ * Fetch with a 15s timeout. A slow answer is treated as an outage instead of being
+ * retried inside the same request: the caller already has a stale-cache fallback.
+ */
 async function get(url: string, timeout = 15_000): Promise<Response> {
   try {
     return await fetch(url, { signal: AbortSignal.timeout(timeout), cf: { cacheEverything: false, cacheTtl: 0 }, headers: { 'User-Agent': 'siyuan-bazaar-stats-graph/1.0', Accept: 'application/json, application/x-ndjson, text/plain' } })
@@ -32,6 +58,7 @@ async function get(url: string, timeout = 15_000): Promise<Response> {
   }
 }
 
+/** Fetch and parse JSON, mapping transport, status and parse failures to their own codes. */
 async function json<T>(url: string): Promise<T> {
   const response = await get(url)
   if (!response.ok) throw new ChartError('dataSourceError', { status: response.status }, 502)
@@ -39,6 +66,7 @@ async function json<T>(url: string): Promise<T> {
   catch { throw new ChartError('dataSourceInvalid', {}, 502) }
 }
 
+/** Normalise a GitHub URL or slug into a lowercase owner/repo pair. */
 const repoNames = (repo: unknown): string[] => {
   if (typeof repo !== 'string') return []
   try {
@@ -49,6 +77,14 @@ const repoNames = (repo: unknown): string[] => {
   } catch { return [] }
 }
 
+/**
+ * Map owner/repo to a bazaar package name.
+ *
+ * The summary mirror lists repository URLs, so it is the cheapest lookup; the
+ * official catalog is only consulted when the mirror has no entry (typically for
+ * packages published after the last stats collection). A miss in both is a
+ * user-facing "package not found".
+ */
 async function resolvePackage(repo: string): Promise<string> {
   const wanted = repo.toLowerCase()
   let summary: { packages?: { name: string; repo?: string }[] }
@@ -65,6 +101,7 @@ async function resolvePackage(repo: string): Promise<string> {
   throw new ChartError('packageNotFound', { repo }, 404)
 }
 
+/** Depth-first search of the catalog for a record pointing at this repository. */
 function findInIndex(value: unknown, repo: string, key = ''): string | undefined {
   if (!value || typeof value !== 'object') return undefined
   if (Array.isArray(value)) {
@@ -77,6 +114,11 @@ function findInIndex(value: unknown, repo: string, key = ''): string | undefined
   return undefined
 }
 
+/**
+ * Ratings arrive either as a five-star histogram (x) or as a precomputed average
+ * (a) plus count (c). Prefer the histogram because it is exact and lets the chart
+ * derive both the average and the total.
+ */
 function rating(stats: Stats): Pick<ChartPoint, 'a' | 'c'> {
   if (stats.x?.length === 5 && stats.x.every(n => Number.isFinite(n) && n >= 0)) {
     const c = stats.x.reduce((a, b) => a + b, 0)
@@ -85,11 +127,18 @@ function rating(stats: Stats): Pick<ChartPoint, 'a' | 'c'> {
   return { ...(Number.isFinite(stats.a) ? { a: stats.a } : {}), ...(Number.isFinite(stats.c) ? { c: stats.c } : {}) }
 }
 
+/** Build one chart point, dropping records without a valid download count. */
 function point(t: number, stats: Stats): ChartPoint | undefined {
   if (!Number.isFinite(t) || !Number.isFinite(stats.d) || (stats.d ?? -1) < 0) return undefined
   return { t: t * 1000, d: stats.d, ...rating(stats) }
 }
 
+/**
+ * Preferred path: the generated per-package history for the resolved name.
+ *
+ * Falls back to raw snapshots when that document is missing or malformed, and
+ * flags the result as stale so the SVG can advertise the degraded source.
+ */
 export async function loadPackage(repo: string): Promise<PackageHistory> {
   const name = await resolvePackage(repo)
   try {
@@ -106,6 +155,13 @@ export async function loadPackage(repo: string): Promise<PackageHistory> {
   return { name, displayName: name, history: await loadSnapshots(name), stale: true }
 }
 
+/**
+ * Replay monthly snapshots as a sparse change log.
+ *
+ * Each line is one collection run and only changed fields are present, so a
+ * `full` record resets the carried ratings. Missing ratings keep the last known
+ * value, and the months are fetched in parallel.
+ */
 async function loadSnapshots(name: string): Promise<ChartPoint[]> {
   const now = new Date()
   const months: string[] = []

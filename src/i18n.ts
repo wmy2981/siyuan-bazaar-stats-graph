@@ -1,3 +1,4 @@
+/** Messages for every expected failure, mirrored in English and Chinese. */
 export type Language = 'en' | 'zh'
 
 export interface LocalizedText {
@@ -5,6 +6,7 @@ export interface LocalizedText {
   hint: string
 }
 
+/** Every error code carries a headline plus an actionable hint. */
 interface ErrorText {
   en: LocalizedText
   zh: LocalizedText
@@ -15,6 +17,7 @@ interface ErrorText {
  * required, so the type checker rejects a new error that ships only English.
  * `{{placeholder}}` values are filled by `localizeError`.
  */
+/** Single source of truth for error text; tests assert both languages. */
 export const ERRORS = {
   methodNotAllowed: {
     en: { message: 'Method not allowed', hint: 'Use a GET request for this SVG endpoint.' },
@@ -113,12 +116,14 @@ export const ERRORS = {
 export type ErrorCode = keyof typeof ERRORS
 export type ErrorValues = Record<string, string | number>
 
+/** Look up a code and substitute its placeholder values. */
 export function localizeError(code: ErrorCode, values: ErrorValues = {}, lang: Language): LocalizedText {
   const text = ERRORS[code][lang]
   return { message: fill(text.message, values), hint: fill(text.hint, values) }
 }
 
 /** `{{name}}` is interpolated; single braces stay literal, e.g. `/api/chart/{owner}/{repo}`. */
+/** Replace {placeholder} tokens; unknown tokens are left untouched. */
 function fill(template: string, values: ErrorValues): string {
   return template.replace(/\{\{(\w+)\}\}/g, (placeholder, name: string) => name in values ? String(values[name]) : placeholder)
 }

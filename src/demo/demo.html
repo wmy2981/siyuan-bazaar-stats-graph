@@ -7,6 +7,7 @@
 	<meta name="description" content="Build an embeddable SVG trend chart for any SiYuan bazaar package.">
 	<meta name="color-scheme" content="light dark">
 	<meta name="theme-color" content="#edf2ee">
+	<!-- Apply the stored page theme before the first paint so the page does not flash. -->
 	<script>
 		(() => {
 			const key = 'siyuan-bazaar-page-theme';
@@ -258,6 +259,7 @@
 					<p class="section-note" data-i18n="embed.note">Copy the chart URL or use a snippet. Language follows your choice in the builder.</p>
 				</div>
 
+				<!-- Each snippet carries the same copy and confirmation icon pair. -->
 				<div class="snippet-list">
 					<article class="snippet">
 						<div class="snippet-head">

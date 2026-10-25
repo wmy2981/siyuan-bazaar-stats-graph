@@ -1,8 +1,15 @@
+/**
+ * Renders repository history as a self-contained, static SVG.
+ *
+ * Nothing here may reference scripts, external assets or hover state: the output is
+ * served as an image and cached by GitHub's image proxy.
+ */
 export type Metric = 'downloads' | 'rating' | 'ratings';
 export type Theme = 'light' | 'dark' | 'auto';
 export type ChartLanguage = 'en' | 'zh' | 'auto';
 type ResolvedLanguage = Exclude<ChartLanguage, 'auto'>;
 
+/** One observation: Unix milliseconds plus whichever metrics were recorded. */
 export interface ChartPoint {
   t: number;
   d?: number;
@@ -10,6 +17,7 @@ export interface ChartPoint {
   c?: number;
 }
 
+/** Normalised chart parameters, already validated by parseOptions(). */
 export interface ChartOptions {
   width: number;
   height: number;
@@ -23,46 +31,67 @@ export interface ChartOptions {
   repo: string;
 }
 
+/** A metric value resolved from a ChartPoint, tagged with its index in the history. */
 type Datum = { t: number; value: number; index: number };
+/** A run of consecutive observations; a gap in the data starts a new segment. */
 type Segment = { start: number; points: Datum[] };
+/** Value range and tick positions for a single axis. */
 type Scale = { min: number; max: number; ticks: number[] };
 
+/** System font stack: no webfont request, so the SVG stays self-contained. */
 const FONT = "-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif";
+/** Legend geometry, shared by the row layout and the renderer. */
 const LEGEND_LINE_WIDTH = 12;
 const LEGEND_TEXT_OFFSET = 18;
 const LEGEND_ITEM_GAP = 22;
 const LEGEND_ROW_HEIGHT = 15;
+/** One colour per metric; the legend reuses these exact values. */
 const COLORS: Record<Metric, string> = {
   downloads: '#0f9f8f',
   rating: '#8264c6',
   ratings: '#d48a17',
 };
+/** Axis labels; both languages are inlined because auto ships one document. */
 const LABELS: Record<Metric, { en: string; zh: string }> = {
   downloads: { en: 'Downloads', zh: '下载量' },
   rating: { en: 'Rating', zh: '评分' },
   ratings: { en: 'Ratings', zh: '评分数' },
 };
 
+/** Theme palettes. The automatic theme emits both and switches with prefers-color-scheme. */
 type PaletteKey = 'background' | 'foreground' | 'title' | 'grid';
 const PALETTE: Record<'light' | 'dark', Record<PaletteKey, string>> = {
   light: { background: '#f5f8fb', foreground: '#506579', title: '#17324d', grid: '#dce5ed' },
   dark: { background: '#18232f', foreground: '#d5e2ed', title: '#dcebf7', grid: '#344453' },
 };
 /** Both themes ship in one document, so the cached SVG follows the reader's colour preference. */
+/**
+ * Both palettes are declared as CSS custom properties on the root element and
+ * switched with a prefers-color-scheme media query, so one cached document can
+ * serve readers in either appearance without a second request.
+ */
 const AUTO_STYLE = `<style>svg{--chart-background:${PALETTE.light.background};--chart-foreground:${PALETTE.light.foreground};--chart-title:${PALETTE.light.title};--chart-grid:${PALETTE.light.grid}}.chart-background{fill:var(--chart-background)}.chart-foreground{fill:var(--chart-foreground)}.chart-title{fill:var(--chart-title)}.chart-grid{stroke:var(--chart-grid)}.chart-ring{stroke:var(--chart-background)}@media (prefers-color-scheme:dark){svg{--chart-background:${PALETTE.dark.background};--chart-foreground:${PALETTE.dark.foreground};--chart-title:${PALETTE.dark.title};--chart-grid:${PALETTE.dark.grid}}}</style>`;
 
+/** Escape text before it is interpolated into SVG markup. */
 const escapeXml = (value: unknown): string => String(value)
   .replaceAll('&', '&amp;')
   .replaceAll('<', '&lt;')
   .replaceAll('>', '&gt;')
   .replaceAll('"', '&quot;')
   .replaceAll("'", '&apos;');
+/** Round coordinates to two decimals: precise enough, and it keeps the markup small. */
 const num = (value: number): string => String(Math.round(value * 100) / 100);
+/** Render timestamps as UTC dates, matching how the upstream data is bucketed. */
 const date = (timestamp: number): string => new Date(timestamp).toISOString().slice(0, 10);
+/** Axis and legend values: integers stay bare, fractions keep two decimals. */
 const formatValue = (value: number): string => Number.isInteger(value)
   ? String(value)
   : String(Math.round(value * 100) / 100);
 
+/**
+ * Pick a "nice" axis step (1, 2 or 5 times a power of ten) so a count axis keeps
+ * roughly four ticks no matter how large the values are.
+ */
 function scaleCounts(values: number[]): Scale {
   const largest = Math.max(0, ...values);
   if (largest === 0) return { min: 0, max: 1, ticks: [0, 1] };
@@ -101,6 +130,7 @@ function sample(data: Datum[], limit = 500): Datum[] {
   return [...forced].sort((a, b) => a - b).map((index) => data[index]);
 }
 
+/** Rough advance width in pixels; a Worker has no font metrics to consult. */
 function measureText(text: string, fontSize: number): number {
   let width = 0;
   for (const character of text) {
@@ -112,6 +142,7 @@ function measureText(text: string, fontSize: number): number {
   return width;
 }
 
+/** Truncate with an ellipsis until the text fits the given width. */
 function fitText(text: string, width: number, fontSize: number): string {
   if (measureText(text, fontSize) <= width) return text;
   let fitted = '';
@@ -122,6 +153,12 @@ function fitText(text: string, width: number, fontSize: number): string {
   return `${fitted}…`;
 }
 
+/**
+ * Lay legend entries into rows that fit the plot width.
+ *
+ * Each label ends with its axis (L for downloads, R for the right-hand metrics)
+ * and the latest value, which is why a metric without data shows an em dash.
+ */
 type LegendItem = { metric: Metric; label: string; width: number };
 
 function legendRows(metrics: Metric[], width: number, lang: 'en' | 'zh',
@@ -148,6 +185,7 @@ function legendRows(metrics: Metric[], width: number, lang: 'en' | 'zh',
   return rows;
 }
 
+/** Wrap on character width units, counting CJK characters as two. */
 function wrapText(text: string, maxUnits: number): string[] {
   const lines: string[] = [];
   for (const sourceLine of text.split(/\r?\n/)) {
@@ -168,8 +206,10 @@ function wrapText(text: string, maxUnits: number): string[] {
   return lines;
 }
 
+/** systemLanguage list for the Chinese branch of the <switch> element. */
 const CHINESE_LANGUAGES = 'zh-CN,zh-SG,zh-TW,zh-HK,zh-MO,zh-Hans,zh-Hant,zh';
 
+/** Expected failures render as SVG with HTTP 200 so a README never shows a broken image. */
 function errorBody(message: string, hint: string): string {
   const lines = wrapText(hint, 96);
   const fontSize = Math.max(9, Math.min(13, 142 / Math.max(1, lines.length) - 3));
@@ -179,14 +219,23 @@ function errorBody(message: string, hint: string): string {
   return `<rect width="100%" height="100%" rx="8" fill="#f5f8fb"/><circle cx="34" cy="35" r="10" fill="#c45656"/><text x="34" y="40" text-anchor="middle" fill="#ffffff" font-size="13" font-weight="700">!</text><text x="54" y="41" fill="#17324d" font-size="17" font-weight="600">${escapeXml(fitText(message, 710, 17))}</text>${hintSvg}`;
 }
 
+/** Single-language error document. */
 export function renderErrorChart(message: string, hint: string, kind = 'error', lang: ResolvedLanguage = 'en'): string {
   return `<svg xmlns="http://www.w3.org/2000/svg" width="800" height="220" viewBox="0 0 800 220" role="img" aria-labelledby="error-title error-hint" data-kind="${escapeXml(kind)}" data-lang="${lang}" font-family="${FONT}"><title id="error-title">${escapeXml(message)}</title><desc id="error-hint">${escapeXml(hint)}</desc>${errorBody(message, hint)}</svg>`;
 }
 
+/** Bilingual error document; the reader's language selects the branch. */
 export function renderAutoErrorChart(enMessage: string, enHint: string, zhMessage: string, zhHint: string, kind = 'error'): string {
   return `<svg xmlns="http://www.w3.org/2000/svg" width="800" height="220" viewBox="0 0 800 220" role="img" aria-labelledby="error-title error-hint" data-kind="${escapeXml(kind)}" data-lang="auto" font-family="${FONT}"><title id="error-title">${escapeXml(enMessage)} / ${escapeXml(zhMessage)}</title><desc id="error-hint">${escapeXml(enHint)} / ${escapeXml(zhHint)}</desc><switch><g systemLanguage="${CHINESE_LANGUAGES}" lang="zh-CN">${errorBody(zhMessage, zhHint)}</g><g lang="en">${errorBody(enMessage, enHint)}</g></switch></svg>`;
 }
 
+/**
+ * Entry point for chart rendering.
+ *
+ * A fixed language renders one body and returns it directly. `lang=auto` renders
+ * both bodies and wraps them in a <switch>: the reader's browser picks a branch,
+ * so a single cached document serves both Chinese and English.
+ */
 export function renderChart(points: ChartPoint[], options: ChartOptions): string {
   if (options.lang !== 'auto') return renderChartDocument(points, options, options.lang);
   const width = Math.max(1, Number.isFinite(options.width) ? options.width : 800);
@@ -196,11 +245,21 @@ export function renderChart(points: ChartPoint[], options: ChartOptions): string
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${num(width)}" height="${num(height)}" viewBox="0 0 ${num(width)} ${num(height)}" role="img" aria-labelledby="chart-title chart-desc" data-lang="auto" font-family="${FONT}"><title id="chart-title">${escapeXml(options.repo)}</title><desc id="chart-desc">Repository metrics over time / 仓库指标时间折线图</desc>${options.theme === 'auto' ? AUTO_STYLE : ''}<switch><g systemLanguage="${CHINESE_LANGUAGES}" lang="zh-CN">${zh}</g><g lang="en">${en}</g></switch></svg>`;
 }
 
+/**
+ * Build one language variant of the chart body.
+ *
+ * bodyOnly is set when the caller wraps the result in a <switch>; the outer <svg>,
+ * <title> and <desc> are then emitted by the caller. The layout is derived from the
+ * requested size: insets for axis labels, the title and the legend rows leave the
+ * remaining space to the plot area.
+ */
 function renderChartDocument(points: ChartPoint[], options: ChartOptions, lang: ResolvedLanguage, bodyOnly = false): string {
   const width = Math.max(1, Number.isFinite(options.width) ? options.width : 800);
   const height = Math.max(1, Number.isFinite(options.height) ? options.height : 400);
   const metrics = [...new Set(options.metrics)].filter((metric): metric is Metric => metric in COLORS);
+  /** Upstream short keys used in the history payload. */
   const field: Record<Metric, keyof ChartPoint> = { downloads: 'd', rating: 'a', ratings: 'c' };
+  /** Split each metric at gaps so missing samples are never interpolated. */
   const series = new Map<Metric, Segment[]>();
   for (const metric of metrics) {
     const data = points
@@ -221,12 +280,14 @@ function renderChartDocument(points: ChartPoint[], options: ChartOptions, lang: 
     for (const segment of segments) segment.points = sample(segment.points);
     series.set(metric, segments);
   }
+  /** The x domain spans the whole history so every series shares one time axis. */
   const all = [...series.values()].flat().flatMap((segment) => segment.points);
   const times = points.filter((point) => Number.isFinite(point.t)).map((point) => point.t).sort((a, b) => a - b);
   const minTime = times[0];
   const maxTime = times[times.length - 1];
   const hasTime = times.length > 0;
 
+  /** Plot insets: room for axis labels, the title and the legend. */
   const left = metrics.includes('downloads') ? Math.min(60, width * 0.18) : 18;
   const right = metrics.some((metric) => metric !== 'downloads') ? Math.min(65, width * 0.2) : 18;
   const titleSpace = options.title ? 50 : 14;
@@ -241,6 +302,7 @@ function renderChartDocument(points: ChartPoint[], options: ChartOptions, lang: 
     ? left + (t - minTime) / (maxTime - minTime) * plotWidth
     : left + plotWidth / 2;
 
+  /** Rating is fixed at 1-5; downloads and counts scale to their own maximum. */
   const countScale = (metric: Metric): Scale => scaleCounts(
     (series.get(metric) ?? []).flatMap((segment) => segment.points).map((point) => point.value));
   const scales: Partial<Record<Metric, Scale>> = {
@@ -248,12 +310,18 @@ function renderChartDocument(points: ChartPoint[], options: ChartOptions, lang: 
     rating: { min: 1, max: 5, ticks: [1, 2, 3, 4, 5] },
     ratings: countScale('ratings'),
   };
+  /** Map a value into the plot area using that metric's own scale. */
   const y = (metric: Metric, value: number): number => {
     const scale = scales[metric]!;
     return titleSpace + (scale.max - value) / (scale.max - scale.min) * plotHeight;
   };
   const auto = options.theme === 'auto';
   const palette = options.theme === 'dark' ? PALETTE.dark : PALETTE.light;
+  /**
+ * Emit a palette value. A fixed theme needs a plain attribute; the automatic theme
+ * adds the class for the CSS custom property but keeps the inline light value as a
+ * fallback for renderers that do not support variables.
+ */
   const paint = (name: PaletteKey, kind: 'fill' | 'stroke', cls = `chart-${name}`): string =>
     auto ? `class="${cls}" ${kind}="${PALETTE.light[name]}"` : `${kind}="${palette[name]}"`;
   const svg: string[] = bodyOnly ? [] : [

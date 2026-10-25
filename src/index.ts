@@ -1,3 +1,7 @@
+/**
+ * Worker entry point: serves the chart builder at /, SVG charts at
+ * /api/chart/{owner}/{repo}, and always answers expected errors with SVG.
+ */
 import { waitUntil } from 'cloudflare:workers'
 import { renderAutoErrorChart, renderChart, renderErrorChart } from './chart'
 import demoHtml from './demo/demo.html?raw'
@@ -7,27 +11,40 @@ import { ChartError, loadPackage } from './data'
 import { localizeError } from './i18n'
 import { parseOptions, sliceHistory } from './options'
 
+/** Owner/repo path shape; validation mirrors GitHub's own slug rules. */
 const route = /^\/api\/chart\/([A-Za-z0-9](?:[A-Za-z0-9-]{0,38}))\/([A-Za-z0-9_.-]{1,100})\/?$/
+/** Charts are inert images, so their policy can stay maximally strict. */
 const SECURITY = { 'X-Content-Type-Options': 'nosniff', 'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline'; sandbox", 'Access-Control-Allow-Origin': '*' }
+/** The builder needs inline style and script plus Cloudflare's analytics beacon. */
 const DEMO_SECURITY = {
   'X-Content-Type-Options': 'nosniff',
   'Referrer-Policy': 'strict-origin-when-cross-origin',
   'Content-Security-Policy': "default-src 'none'; img-src 'self' data: blob:; style-src 'unsafe-inline'; script-src 'unsafe-inline' https://static.cloudflareinsights.com; connect-src 'self' https://cloudflareinsights.com; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
 }
+/** Inline the stylesheet and script so the page is a single cacheable response. */
 const demoPage = demoHtml
   .replace('/*__STYLE__*/', () => demoStyles)
   .replace('/*__SCRIPT__*/', () => demoScript)
 
+/**
+ * Build one SVG response.
+ *
+ * Success and failure both carry Cache-Control for the edge (30 minutes for a
+ * chart, one minute for an error) plus Cloudflare's CDN-Cache-Control, and the
+ * cache state is reported in X-Cache.
+ */
 function svg(body: string, status = 200, error = false, cache = 'MISS'): Response {
   return new Response(body, { status, headers: { ...SECURITY, 'Content-Type': 'image/svg+xml; charset=utf-8', 'Cache-Control': `public, max-age=60, s-maxage=${error ? 60 : 1800}`, 'CDN-Cache-Control': `max-age=${error ? 60 : 1800}`, 'X-Chart-Status': error ? 'error' : 'ok', 'X-Cache': cache, Vary: 'Accept-Encoding' } })
 }
 
+/** Builder page; HEAD still answers with the same headers and no body. */
 function demo(request: Request): Response {
   return new Response(request.method === 'HEAD' ? null : demoPage, {
     headers: { ...DEMO_SECURITY, 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'public, max-age=300', Vary: 'Accept-Encoding' },
   })
 }
 
+/** Errors render in the reader's language, or in both when lang=auto. */
 function errorChart(url: URL, error: ChartError): string {
   const lang = url.searchParams.get('lang')
   const en = localizeError(error.code, error.values, 'en')
@@ -40,10 +57,12 @@ function errorChart(url: URL, error: ChartError): string {
 export default {
   async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url)
+    // Only GET and HEAD are meaningful; anything else renders a visible error.
     if (request.method !== 'GET' && request.method !== 'HEAD') return svg(errorChart(url, new ChartError('methodNotAllowed')), 200, true)
     if (url.pathname === '/' || url.pathname === '/index.html') return demo(request)
     if (url.pathname === '/favicon.ico') return new Response(null, { status: 204 })
     if (url.pathname === '/robots.txt') return new Response(request.method === 'HEAD' ? null : 'User-agent: *\nAllow: /\n', { headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'public, max-age=3600' } })
+    // Unknown paths still return SVG so an embed fails visibly instead of blank.
     const match = route.exec(url.pathname)
     if (!match) return svg(errorChart(url, new ChartError('invalidChartUrl')), 200, true)
     const cacheKey = new Request(url.toString(), { method: 'GET' })
@@ -72,6 +91,7 @@ export default {
       waitUntil(caches.default.put(staleKey, staleCopy))
       return response
     } catch (cause) {
+      // Serve the 24h stale copy instead of an error while the upstream is down.
       const previous = await caches.default.match(staleKey)
       const fetchedAt = previous ? Date.parse(previous.headers.get('X-Fetched-At') || '') : NaN
       if (previous && Date.now() - fetchedAt < 86_400_000) {

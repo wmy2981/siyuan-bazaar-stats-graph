@@ -1,3 +1,4 @@
+/** Rendering contract: self-contained markup, stable geometry and localisation. */
 import { describe, expect, it } from 'vitest';
 import { renderChart, renderErrorChart, type ChartOptions, type ChartPoint } from '../src/chart';
 
