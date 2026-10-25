@@ -2,7 +2,7 @@
 
 Static SVG trend charts for [SiYuan Note](https://github.com/siyuan-note/siyuan) bazaar packages, powered by Cloudflare Workers and the public history from [TCOTC/siyuan-bazaar-stats](https://github.com/TCOTC/siyuan-bazaar-stats).
 
-![Live chart for the SiYuan sample plugin](https://siyuan-bazaar-stats-graph.sr1.cc.cd/api/chart/siyuan-note/plugin-sample?metrics=downloads&range=90d&area=true)
+![Live chart for wmy2981/ai-title-siyuan](https://siyuan-bazaar-stats-graph.sr1.cc.cd/api/chart/wmy2981/ai-title-siyuan?metrics=downloads&range=90d&area=true)
 
 ## Embed in a README
 
