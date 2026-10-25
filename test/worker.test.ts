@@ -89,14 +89,40 @@ describe('SVG Worker', () => {
     expect(body).toContain('data-metric="downloads"')
     expect(body).toContain('owner/repo · 2026-09-25')
   })
-  it('serves the last successful chart for one day during upstream failure', async () => {
-    const cached = new Response('<svg>previous</svg>', { headers: { 'X-Fetched-At': new Date().toISOString(), 'X-Chart-Status': 'ok' } })
-    vi.mocked(caches.default.match).mockResolvedValueOnce(undefined).mockResolvedValueOnce(cached)
-    vi.mocked(fetch).mockImplementation(async () => { throw new Error('offline') })
-    const response = await worker.fetch(new Request('https://charts.test/api/chart/owner/repo'))
-    expect(response.headers.get('x-chart-status')).toBe('stale')
-    expect(response.headers.get('x-cache')).toBe('STALE')
-    expect(await response.text()).toBe('<svg>previous</svg>')
+  it('stores a fallback copy for one day independently of the normal cache', async () => {
+    await worker.fetch(new Request('https://charts.test/api/chart/owner/repo'))
+    const puts = vi.mocked(caches.default.put).mock.calls.slice(-2)
+    expect(puts.map(([request]) => (request as Request).url)).toEqual([
+      'https://charts.test/api/chart/owner/repo',
+      'https://charts.test/api/chart/owner/repo?_stale=1',
+    ])
+    expect(puts[0][1].headers.get('cache-control')).toContain('s-maxage=1800')
+    expect(puts[1][1].headers.get('cache-control')).toContain('s-maxage=86400')
+    expect(puts[1][1].headers.get('cdn-cache-control')).toBe('max-age=86400')
+  })
+  it('serves the fallback after the normal cache expires during upstream failure', async () => {
+    const entries = new Map<string, { response: Response; expiresAt: number }>()
+    vi.useFakeTimers().setSystemTime(new Date('2026-10-25T00:00:00Z'))
+    try {
+      vi.mocked(caches.default.put).mockImplementation(async (request, response) => {
+        const maxAge = Number(/s-maxage=(\d+)/.exec(response.headers.get('cache-control'))?.[1])
+        entries.set((request as Request).url, { response: response.clone(), expiresAt: Date.now() + maxAge * 1000 })
+      })
+      vi.mocked(caches.default.match).mockImplementation(async request => {
+        const entry = request instanceof Request ? entries.get(request.url) : undefined
+        return entry && entry.expiresAt > Date.now() ? entry.response.clone() : undefined
+      })
+      await worker.fetch(new Request('https://charts.test/api/chart/owner/repo'))
+      vi.setSystemTime(Date.now() + 1801_000)
+      vi.mocked(fetch).mockImplementation(async () => { throw new Error('offline') })
+      const response = await worker.fetch(new Request('https://charts.test/api/chart/owner/repo'))
+      expect(response.headers.get('x-chart-status')).toBe('stale')
+      expect(response.headers.get('x-cache')).toBe('STALE')
+      expect(await response.text()).toContain('<svg')
+    } finally {
+      vi.useRealTimers()
+      vi.mocked(caches.default.match).mockResolvedValue(undefined)
+    }
   })
   it('returns an SVG for unsupported methods', async () => {
     const response = await worker.fetch(new Request('https://charts.test/api/chart/owner/repo', { method: 'POST' }))

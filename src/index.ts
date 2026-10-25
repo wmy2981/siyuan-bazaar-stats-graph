@@ -44,9 +44,12 @@ export default {
     if (url.pathname === '/robots.txt') return new Response(request.method === 'HEAD' ? null : 'User-agent: *\nAllow: /\n', { headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'public, max-age=3600' } })
     const match = route.exec(url.pathname)
     if (!match) return svg(errorChart(url, 'Invalid chart URL', 'Use /api/chart/{owner}/{repo}?metrics=downloads,rating,ratings'), 200, true)
+    const cacheKey = new Request(url.toString(), { method: 'GET' })
+    const staleUrl = new URL(url)
+    staleUrl.searchParams.set('_stale', '1')
+    const staleKey = new Request(staleUrl.toString(), { method: 'GET' })
     try {
       const options = parseOptions(url)
-      const cacheKey = new Request(url.toString(), { method: 'GET' })
       const cached = await caches.default.match(cacheKey)
       if (cached) return cached
       const pkg = await loadPackage(`${match[1]}/${match[2]}`)
@@ -60,10 +63,14 @@ export default {
       const response = svg(chart)
       response.headers.set('X-Fetched-At', new Date().toISOString())
       if (pkg.stale) response.headers.set('X-Data-Stale', 'true')
+      const staleCopy = response.clone()
+      staleCopy.headers.set('Cache-Control', 'public, max-age=60, s-maxage=86400')
+      staleCopy.headers.set('CDN-Cache-Control', 'max-age=86400')
       waitUntil(caches.default.put(cacheKey, response.clone()))
+      waitUntil(caches.default.put(staleKey, staleCopy))
       return response
     } catch (cause) {
-      const previous = await caches.default.match(new Request(url.toString(), { method: 'GET' }))
+      const previous = await caches.default.match(staleKey)
       const fetchedAt = previous ? Date.parse(previous.headers.get('X-Fetched-At') || '') : NaN
       if (previous && Date.now() - fetchedAt < 86_400_000) {
         const stale = new Response(previous.body, previous)
