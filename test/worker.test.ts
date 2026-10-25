@@ -103,6 +103,7 @@ describe('SVG Worker', () => {
   })
   it('serves the fallback after the normal cache expires during upstream failure', async () => {
     const entries = new Map<string, { response: Response; expiresAt: number }>()
+    const implementation = vi.mocked(fetch).getMockImplementation()!
     vi.useFakeTimers().setSystemTime(new Date('2026-10-25T00:00:00Z'))
     try {
       vi.mocked(caches.default.put).mockImplementation(async (request, response) => {
@@ -123,11 +124,96 @@ describe('SVG Worker', () => {
     } finally {
       vi.useRealTimers()
       vi.mocked(caches.default.match).mockResolvedValue(undefined)
+      vi.mocked(fetch).mockImplementation(implementation)
     }
   })
   it('returns an SVG for unsupported methods', async () => {
     const response = await worker.fetch(new Request('https://charts.test/api/chart/owner/repo', { method: 'POST' }))
     expect(response.headers.get('x-chart-status')).toBe('error')
     expect(await response.text()).toContain('Method not allowed')
+  })
+})
+
+describe('localized SVG errors', () => {
+  const chart = (path: string, lang: string) => {
+    const separator = path.includes('?') ? '&' : '?'
+    return worker.fetch(new Request(`https://charts.test${path}${separator}lang=${lang}`))
+  }
+  it.each([
+    ['/api/chart/owner', 'Invalid chart URL', '图表链接无效'],
+    ['/api/chart/owner/repo?foo=1', 'Unknown parameter: foo', '未知参数：foo'],
+    ['/api/chart/owner/repo?metrics=nope', 'Unknown metric', '未知指标'],
+    ['/api/chart/owner/repo?theme=blue', 'Unknown theme', '未知主题'],
+    ['/api/chart/owner/repo?range=7d', 'Unknown date range', '未知时间范围'],
+    ['/api/chart/owner/repo?width=abc', 'Invalid width', '参数 width 无效'],
+    ['/api/chart/owner/repo?height=1001', 'Invalid height', '参数 height 无效'],
+    ['/api/chart/owner/repo?width=1&width=2', 'Invalid width', '参数 width 无效'],
+    ['/api/chart/owner/repo?grid=maybe', 'Invalid grid', '参数 grid 无效'],
+    ['/api/chart/owner/repo?start=2020-13-01', 'Invalid start', '参数 start 无效'],
+    ['/api/chart/owner/repo?range=30d&start=2020-01-01', 'Conflicting date filters', '日期参数冲突'],
+    ['/api/chart/owner/repo?start=2020-01-02&end=2020-01-01', 'Invalid date range', '日期范围无效'],
+    ['/api/chart/owner/repo?start=2020-01-01&end=2020-01-02', 'No history in this date range', '该时间范围内没有历史数据'],
+  ])('renders %s as %s or %s only', async (path, en, zh) => {
+    const english = await (await chart(path, 'en')).text()
+    expect(english).toContain('data-lang="en"')
+    expect(english).toContain(en)
+    expect(english).not.toMatch(/[\u4e00-\u9fff]/)
+    expect(english).not.toContain('<switch>')
+    expect(english).not.toContain('{{')
+
+    const chinese = await (await chart(path, 'zh')).text()
+    expect(chinese).toContain('data-lang="zh"')
+    expect(chinese).toContain(zh)
+    expect(chinese).not.toContain(en)
+    expect(chinese).not.toContain('<switch>')
+    expect(chinese).not.toContain('{{')
+    expect(chinese).toMatch(/<desc id="error-hint">[^<]*[\u4e00-\u9fff]/)
+
+    const auto = await (await chart(path, 'auto')).text()
+    expect(auto).toContain('data-lang="auto"')
+    expect(auto).toContain('<switch>')
+    expect(auto).toContain(en)
+    expect(auto).toContain(zh)
+    expect(auto).toContain(`<title id="error-title">${en} / ${zh}</title>`)
+    expect(auto).not.toContain('{{')
+  })
+  it('keeps both languages when the requested language is unknown', async () => {
+    const response = await worker.fetch(new Request('https://charts.test/api/chart/owner/repo?lang=fr'))
+    const body = await response.text()
+    expect(response.headers.get('x-chart-status')).toBe('error')
+    expect(body).toContain('Unknown language')
+    expect(body).toContain('未知语言')
+    expect(body).toContain('<switch>')
+  })
+  it('localizes a Chinese error hint with the dynamic detail', async () => {
+    const chinese = await (await chart('/api/chart/nobody/nothing', 'zh')).text()
+    expect(chinese).toContain('未找到集市包')
+    expect(chinese).toContain('github.com/nobody/nothing')
+    const english = await (await chart('/api/chart/nobody/nothing', 'en')).text()
+    expect(english).toContain('No bazaar package matches github.com/nobody/nothing')
+  })
+  it('localizes an upstream failure and keeps the status code', async () => {
+    const implementation = vi.mocked(fetch).getMockImplementation()!
+    vi.mocked(fetch).mockImplementation(async () => new Response('upstream down', { status: 503 }))
+    try {
+      const chinese = await (await chart('/api/chart/owner/repo', 'zh')).text()
+      expect(chinese).toContain('数据源返回错误')
+      expect(chinese).toContain('上游状态码 503')
+      const english = await (await chart('/api/chart/owner/repo', 'en')).text()
+      expect(english).toContain('Data source returned an error')
+      expect(english).toContain('Upstream status: 503')
+    } finally {
+      vi.mocked(fetch).mockImplementation(implementation)
+    }
+  })
+  it('localizes the hint for an unsupported method', async () => {
+    for (const [lang, message, hint] of [
+      ['en', 'Method not allowed', 'Use a GET request for this SVG endpoint.'],
+      ['zh', '请求方法不允许', '请使用 GET 请求此 SVG 接口。'],
+    ] as const) {
+      const body = await (await worker.fetch(new Request(`https://charts.test/api/chart/owner/repo?lang=${lang}`, { method: 'POST' }))).text()
+      expect(body).toContain(message)
+      expect(body).toContain(hint)
+    }
   })
 })

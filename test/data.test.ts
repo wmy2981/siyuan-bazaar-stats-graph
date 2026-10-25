@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { loadPackage } from '../src/data'
+import { ChartError, loadPackage } from '../src/data'
+import { localizeError } from '../src/i18n'
 
 const summary = { packages: [{ name: 'sample', repo: 'owner/repo' }] }
 const detail = { name: 'sample', repo: 'owner/repo', current: { d: 42 }, history: [{ t: 100, d: 20, x: [1, 0, 0, 0, 1] }] }
@@ -55,5 +56,26 @@ describe('package data', () => {
       'https://bazaar.b3logfile.com/bazaar/index.json': () => Response.json({ packages: {} }),
     })
     await expect(loadPackage('owner/unknown')).rejects.toThrow('Package not found')
+  })
+  it('builds the default error text from the bilingual catalog', () => {
+    const error = new ChartError('packageNotFound', { repo: 'owner/missing' })
+    expect(error.message).toBe('Package not found')
+    expect(error.hint).toBe('No bazaar package matches github.com/owner/missing. Check owner/repo and package availability.')
+    expect(localizeError(error.code, error.values, 'zh')).toEqual({
+      message: '未找到集市包',
+      hint: '思源集市里没有与 github.com/owner/missing 匹配的包，请检查 owner/repo 以及该包是否已上架。',
+    })
+  })
+  it('keeps the upstream status code in both error hints', async () => {
+    mockFetch({
+      'https://github.mytemos.com/siyuan-bazaar-stats/data/summary.json': () => new Response('down', { status: 503 }),
+      'https://siyuan-bazaar-stats.mytemos.com/data/summary.json': () => new Response('down', { status: 503 }),
+    })
+    const error = await loadPackage('owner/repo').catch(cause => cause as ChartError)
+    expect(error).toBeInstanceOf(ChartError)
+    expect(error.code).toBe('dataSourceError')
+    expect(error.values).toEqual({ status: 503 })
+    expect(error.hint).toContain('503')
+    expect(localizeError(error.code, error.values, 'zh').hint).toBe('上游状态码 503，请稍后重试。')
   })
 })

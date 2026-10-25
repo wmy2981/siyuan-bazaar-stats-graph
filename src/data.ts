@@ -1,4 +1,5 @@
 import type { ChartPoint } from './chart'
+import { localizeError, type ErrorCode, type ErrorValues } from './i18n'
 
 const INDEX_URL = 'https://bazaar.b3logfile.com/bazaar/index.json'
 const SUMMARY_URL = 'https://siyuan-bazaar-stats.mytemos.com/data/summary.json'
@@ -13,7 +14,12 @@ interface Snapshot { t: number; full?: boolean; p: Record<string, Stats> }
 interface PackageDetail { name: string; repo: string; displayName?: string; current: Stats; history: ChartPoint[] }
 
 export class ChartError extends Error {
-  constructor(message: string, public hint: string, public status = 400) { super(message) }
+  readonly hint: string
+  constructor(readonly code: ErrorCode, readonly values: ErrorValues = {}, readonly status = 400) {
+    const text = localizeError(code, values, 'en')
+    super(text.message)
+    this.hint = text.hint
+  }
 }
 
 export interface PackageHistory { name: string; displayName: string; history: ChartPoint[]; stale?: boolean }
@@ -22,15 +28,15 @@ async function get(url: string, timeout = 15_000): Promise<Response> {
   try {
     return await fetch(url, { signal: AbortSignal.timeout(timeout), cf: { cacheEverything: false, cacheTtl: 0 }, headers: { 'User-Agent': 'siyuan-bazaar-stats-graph/1.0', Accept: 'application/json, application/x-ndjson, text/plain' } })
   } catch {
-    throw new ChartError('Data source is temporarily unavailable', 'Please try again in a minute.', 502)
+    throw new ChartError('dataSourceUnavailable', {}, 502)
   }
 }
 
 async function json<T>(url: string): Promise<T> {
   const response = await get(url)
-  if (!response.ok) throw new ChartError('Data source returned an error', `Upstream status: ${response.status}. Please try again later.`, 502)
+  if (!response.ok) throw new ChartError('dataSourceError', { status: response.status }, 502)
   try { return await response.json() as T }
-  catch { throw new ChartError('Data source returned invalid data', 'Please try again after the upstream data is repaired.', 502) }
+  catch { throw new ChartError('dataSourceInvalid', {}, 502) }
 }
 
 const repoNames = (repo: unknown): string[] => {
@@ -56,7 +62,7 @@ async function resolvePackage(repo: string): Promise<string> {
   } catch {
     // Preserve the actionable not-found response if the secondary index is unavailable.
   }
-  throw new ChartError('Package not found', `No bazaar package matches github.com/${repo}. Check owner/repo and package availability.`, 404)
+  throw new ChartError('packageNotFound', { repo }, 404)
 }
 
 function findInIndex(value: unknown, repo: string, key = ''): string | undefined {
@@ -111,10 +117,10 @@ async function loadSnapshots(name: string): Promise<ChartPoint[]> {
   const result = await Promise.all(months.map(async month => {
     const response = await get(`${RAW_URL}/${month}.jsonl`)
     if (response.status === 404) return ''
-    if (!response.ok) throw new ChartError('History data is temporarily unavailable', `Upstream status: ${response.status}. Please try again later.`, 502)
-    if (Number(response.headers.get('content-length')) > MAX_SNAPSHOT_BYTES) throw new ChartError('History data is too large', 'Use a narrower date range.', 502)
+    if (!response.ok) throw new ChartError('historyUnavailable', { status: response.status }, 502)
+    if (Number(response.headers.get('content-length')) > MAX_SNAPSHOT_BYTES) throw new ChartError('historyTooLarge', {}, 502)
     const text = await response.text()
-    if (text.length > MAX_SNAPSHOT_BYTES) throw new ChartError('History data is too large', 'Use a narrower date range.', 502)
+    if (text.length > MAX_SNAPSHOT_BYTES) throw new ChartError('historyTooLarge', {}, 502)
     return text
   }))
   const history: ChartPoint[] = []
@@ -122,7 +128,7 @@ async function loadSnapshots(name: string): Promise<ChartPoint[]> {
   for (const text of result) for (const line of text.split('\n')) {
     if (!line.trim()) continue
     let snapshot: Snapshot
-    try { snapshot = JSON.parse(line) } catch { throw new ChartError('History data is malformed', 'Please try again after the upstream data is repaired.', 502) }
+    try { snapshot = JSON.parse(line) } catch { throw new ChartError('historyMalformed', {}, 502) }
     if (!Number.isFinite(snapshot.t) || !snapshot.p || typeof snapshot.p !== 'object') continue
     if (snapshot.full) current = undefined
     const stats = snapshot.p[name]
