@@ -1,5 +1,5 @@
 import { ChartError } from './data'
-import type { ChartOptions, Metric, Theme } from './chart'
+import type { ChartLanguage, ChartOptions, Metric, Theme } from './chart'
 
 const metrics: Metric[] = ['downloads', 'rating', 'ratings']
 const ranges: Record<string, number | undefined> = { '30d': 30, '90d': 90, '1y': 365, all: undefined }
@@ -17,8 +17,8 @@ export function parseOptions(url: URL): ChartOptions & { start?: number; end?: n
   if (!selected.length || selected.some(v => !metrics.includes(v as Metric))) throw new ChartError('Unknown metric', 'Use metrics=downloads,rating,ratings (one or more).')
   const theme = one('theme') || 'auto'
   if (theme !== 'light' && theme !== 'dark' && theme !== 'auto') throw new ChartError('Unknown theme', 'Use theme=light, theme=dark or theme=auto.')
-  const lang = one('lang') || 'en'
-  if (lang !== 'en' && lang !== 'zh') throw new ChartError('Unknown language', 'Use lang=en or lang=zh.')
+  const lang = one('lang') || 'auto'
+  if (lang !== 'en' && lang !== 'zh' && lang !== 'auto') throw new ChartError('Unknown language', 'Use lang=en, lang=zh or lang=auto.')
   const number = (name: string, fallback: number, min: number, max: number) => {
     const raw = one(name)
     if (!raw) return fallback
@@ -51,7 +51,7 @@ export function parseOptions(url: URL): ChartOptions & { start?: number; end?: n
   const rangeEnd = end ?? Math.floor(Date.now() / 1000)
   return {
     width: number('width', 800, 320, 1600), height: number('height', 400, 200, 1000),
-    theme: theme as Theme, metrics: selected as Metric[], lang: lang as 'en' | 'zh',
+    theme: theme as Theme, metrics: selected as Metric[], lang: lang as ChartLanguage,
     title: bool('title', true), legend: bool('legend', true), grid: bool('grid', true), area: bool('area', false),
     start: start ?? (days ? rangeEnd - days * 86400 : undefined), end,
     repo: `${url.pathname.split('/')[3]}/${url.pathname.split('/')[4]}`,

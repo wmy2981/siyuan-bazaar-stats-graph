@@ -1,5 +1,7 @@
 export type Metric = 'downloads' | 'rating' | 'ratings';
 export type Theme = 'light' | 'dark' | 'auto';
+export type ChartLanguage = 'en' | 'zh' | 'auto';
+type ResolvedLanguage = Exclude<ChartLanguage, 'auto'>;
 
 export interface ChartPoint {
   t: number;
@@ -17,7 +19,7 @@ export interface ChartOptions {
   legend: boolean;
   grid: boolean;
   area: boolean;
-  lang: 'en' | 'zh';
+  lang: ChartLanguage;
   repo: string;
 }
 
@@ -143,19 +145,37 @@ function wrapText(text: string, maxUnits: number): string[] {
   return lines;
 }
 
-export function renderErrorChart(message: string, hint: string, kind = 'error'): string {
+const CHINESE_LANGUAGES = 'zh-CN,zh-SG,zh-TW,zh-HK,zh-MO,zh-Hans,zh-Hant,zh';
+
+function errorBody(message: string, hint: string): string {
   const lines = wrapText(hint, 96);
   const fontSize = Math.max(9, Math.min(13, 142 / Math.max(1, lines.length) - 3));
   const lineHeight = fontSize + 6;
   const hintSvg = lines.map((line, index) =>
     `<text x="32" y="${num(79 + index * lineHeight)}" fill="#506579" font-size="${num(fontSize)}">${escapeXml(line)}</text>`).join('');
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="800" height="220" viewBox="0 0 800 220" role="img" aria-labelledby="error-title error-hint" data-kind="${escapeXml(kind)}" font-family="${FONT}"><title id="error-title">${escapeXml(message)}</title><desc id="error-hint">${escapeXml(hint)}</desc><rect width="100%" height="100%" rx="8" fill="#f5f8fb"/><circle cx="34" cy="35" r="10" fill="#c45656"/><text x="34" y="40" text-anchor="middle" fill="#ffffff" font-size="13" font-weight="700">!</text><text x="54" y="41" fill="#17324d" font-size="17" font-weight="600">${escapeXml(fitText(message, 710, 17))}</text>${hintSvg}</svg>`;
+  return `<rect width="100%" height="100%" rx="8" fill="#f5f8fb"/><circle cx="34" cy="35" r="10" fill="#c45656"/><text x="34" y="40" text-anchor="middle" fill="#ffffff" font-size="13" font-weight="700">!</text><text x="54" y="41" fill="#17324d" font-size="17" font-weight="600">${escapeXml(fitText(message, 710, 17))}</text>${hintSvg}`;
+}
+
+export function renderErrorChart(message: string, hint: string, kind = 'error', lang: ResolvedLanguage = 'en'): string {
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="800" height="220" viewBox="0 0 800 220" role="img" aria-labelledby="error-title error-hint" data-kind="${escapeXml(kind)}" data-lang="${lang}" font-family="${FONT}"><title id="error-title">${escapeXml(message)}</title><desc id="error-hint">${escapeXml(hint)}</desc>${errorBody(message, hint)}</svg>`;
+}
+
+export function renderAutoErrorChart(enMessage: string, enHint: string, zhMessage: string, zhHint: string, kind = 'error'): string {
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="800" height="220" viewBox="0 0 800 220" role="img" aria-labelledby="error-title error-hint" data-kind="${escapeXml(kind)}" data-lang="auto" font-family="${FONT}"><title id="error-title">${escapeXml(enMessage)}</title><desc id="error-hint">${escapeXml(enHint)} / ${escapeXml(zhHint)}</desc><switch><g systemLanguage="${CHINESE_LANGUAGES}" lang="zh-CN">${errorBody(zhMessage, zhHint)}</g><g lang="en">${errorBody(enMessage, enHint)}</g></switch></svg>`;
 }
 
 export function renderChart(points: ChartPoint[], options: ChartOptions): string {
+  if (options.lang !== 'auto') return renderChartDocument(points, options, options.lang);
   const width = Math.max(1, Number.isFinite(options.width) ? options.width : 800);
   const height = Math.max(1, Number.isFinite(options.height) ? options.height : 400);
-  const lang = options.lang;
+  const zh = renderChartDocument(points, options, 'zh', true);
+  const en = renderChartDocument(points, options, 'en', true);
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${num(width)}" height="${num(height)}" viewBox="0 0 ${num(width)} ${num(height)}" role="img" aria-labelledby="chart-title chart-desc" data-lang="auto" font-family="${FONT}"><title id="chart-title">${escapeXml(options.repo)}</title><desc id="chart-desc">Repository metrics over time / 仓库指标时间折线图</desc>${options.theme === 'auto' ? AUTO_STYLE : ''}<switch><g systemLanguage="${CHINESE_LANGUAGES}" lang="zh-CN">${zh}</g><g lang="en">${en}</g></switch></svg>`;
+}
+
+function renderChartDocument(points: ChartPoint[], options: ChartOptions, lang: ResolvedLanguage, bodyOnly = false): string {
+  const width = Math.max(1, Number.isFinite(options.width) ? options.width : 800);
+  const height = Math.max(1, Number.isFinite(options.height) ? options.height : 400);
   const metrics = [...new Set(options.metrics)].filter((metric): metric is Metric => metric in COLORS);
   const field: Record<Metric, keyof ChartPoint> = { downloads: 'd', rating: 'a', ratings: 'c' };
   const series = new Map<Metric, Segment[]>();
@@ -213,13 +233,13 @@ export function renderChart(points: ChartPoint[], options: ChartOptions): string
   const palette = options.theme === 'dark' ? PALETTE.dark : PALETTE.light;
   const paint = (name: PaletteKey, kind: 'fill' | 'stroke', cls = `chart-${name}`): string =>
     auto ? `class="${cls}" ${kind}="${PALETTE.light[name]}"` : `${kind}="${palette[name]}"`;
-  const svg: string[] = [
-    `<svg xmlns="http://www.w3.org/2000/svg" width="${num(width)}" height="${num(height)}" viewBox="0 0 ${num(width)} ${num(height)}" role="img" aria-labelledby="chart-title chart-desc" font-family="${FONT}">`,
+  const svg: string[] = bodyOnly ? [] : [
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${num(width)}" height="${num(height)}" viewBox="0 0 ${num(width)} ${num(height)}" role="img" aria-labelledby="chart-title chart-desc" data-lang="${lang}" font-family="${FONT}">`,
     `<title id="chart-title">${escapeXml(options.repo)}</title>`,
     `<desc id="chart-desc">${escapeXml(lang === 'zh' ? '仓库指标时间折线图' : 'Repository metrics over time')}</desc>`,
     ...(auto ? [AUTO_STYLE] : []),
-    `<rect width="100%" height="100%" rx="8" ${paint('background', 'fill')}/>`,
   ];
+  svg.push(`<rect width="100%" height="100%" rx="8" ${paint('background', 'fill')}/>`);
 
   if (options.title) {
     const suffix = hasTime ? ` · ${date(maxTime)}` : '';
@@ -307,6 +327,6 @@ export function renderChart(points: ChartPoint[], options: ChartOptions): string
       xx += label.length * 6 + 23;
     }
   }
-  svg.push('</svg>');
+  if (!bodyOnly) svg.push('</svg>');
   return svg.join('');
 }

@@ -47,6 +47,20 @@ describe('renderChart', () => {
     }
   });
 
+  it('ships both languages in one document when the language is automatic', () => {
+    const svg = renderChart([{ t: time(1), d: 1 }, { t: time(2), d: 2 }], options({ lang: 'auto' }));
+    expect(svg).toContain('data-lang="auto"');
+    expect(svg).toContain('systemLanguage="zh-CN,zh-SG,zh-TW,zh-HK,zh-MO,zh-Hans,zh-Hant,zh"');
+    expect(svg).toContain('lang="zh-CN"');
+    expect(svg).toContain('Downloads (L) 2');
+    expect(svg).toContain('下载量 (左轴) 2');
+    expect(svg).toContain('<switch>');
+    const fixed = renderChart([{ t: time(1), d: 1 }], options({ lang: 'en' }));
+    expect(fixed).toContain('data-lang="en"');
+    expect(fixed).not.toContain('<switch>');
+    expect(fixed).not.toContain('systemLanguage');
+  });
+
   it('uses the correct metric fields and colors', () => {
     const svg = renderChart([
       { t: time(1), d: 10, a: 3.5, c: 4 },

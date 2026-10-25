@@ -44,9 +44,11 @@ The response is always a self-contained `image/svg+xml` document, including inpu
 | `legend` | `true`, `false` | `true` |
 | `grid` | `true`, `false` | `true` |
 | `area` | `true`, `false`; fill below downloads | `false` |
-| `lang` | `en`, `zh` | `en` |
+| `lang` | `en`, `zh`, `auto` | `auto` |
 
 `theme=auto`, the default, ships both palettes in one SVG and follows the reader's system colour preference. GitHub's page theme cannot reach an image, so a dark system with a light GitHub still shows a dark card; set `theme` explicitly for a fixed look.
+
+`lang=auto`, the default, ships both English and Chinese labels in one SVG and selects them from the reader's interface language preferences. Set `lang=en` or `lang=zh` for a fixed language.
 
 `rating` is the weighted average from 1 to 5. `ratings` is the number of ratings. Downloads use the left axis; rating metrics use the right. When both rating metrics are selected, paired right-axis labels show average / count. Lines use actual observation timestamps rather than assuming evenly spaced samples. Gaps in rating history are not connected. A range beginning after the first observation carries the last known value to the start boundary, which correctly represents cumulative metrics.
 
