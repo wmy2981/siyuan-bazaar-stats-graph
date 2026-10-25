@@ -1,0 +1,25 @@
+{
+  "name": "siyuan-bazaar-stats-graph",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=22.18.0" },
+  "scripts": {
+    "dev": "cf dev",
+    "build": "cf build",
+    "build:ci": "npm run build && node scripts/prepare-ci-build.mjs",
+    "deploy": "cf deploy",
+    "typecheck": "cf workers types && tsc",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "check": "npm run typecheck && npm test && npm run build"
+  },
+  "devDependencies": {
+    "@cloudflare/vite-plugin": "beta",
+    "@types/node": "^24.10.0",
+    "cf": "^1.0.0-beta.21",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.0",
+    "vitest": "^4.0.0"
+  }
+}
