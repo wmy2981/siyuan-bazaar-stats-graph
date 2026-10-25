@@ -100,7 +100,7 @@ describe('renderChart', () => {
     expect(coordinates.length).toBeLessThanOrEqual(500);
     expect(coordinates[0][0]).toBe(coordinates.reduce((min, pair) => Math.min(min, pair[0]), Infinity));
     expect(coordinates.at(-1)![0]).toBe(coordinates.reduce((max, pair) => Math.max(max, pair[0]), -Infinity));
-    expect(Math.min(...coordinates.map((pair) => pair[1]))).toBeLessThan(37);
+    expect(Math.min(...coordinates.map((pair) => pair[1]))).toBeLessThan(51);
     expect(svg).toContain('Downloads (L) 1000');
     expect(svg).toContain('Rating (R) 3');
   });
@@ -117,7 +117,7 @@ describe('renderChart', () => {
     expect(svg).toContain('data-start="1"');
     expect(svg).toContain('data-start="3001"');
     const allY = lines.flatMap((line) => line[1].split(' ').map((pair) => Number(pair.split(',')[1])));
-    expect(Math.min(...allY)).toBeLessThan(69);
+    expect(Math.min(...allY)).toBeLessThan(83);
     expect(Math.max(...allY)).toBeGreaterThan(358);
   });
 

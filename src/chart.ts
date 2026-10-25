@@ -179,7 +179,7 @@ export function renderChart(points: ChartPoint[], options: ChartOptions): string
 
   const left = metrics.includes('downloads') ? Math.min(60, width * 0.18) : 18;
   const right = metrics.some((metric) => metric !== 'downloads') ? Math.min(65, width * 0.2) : 18;
-  const titleSpace = options.title ? 36 : 14;
+  const titleSpace = options.title ? 50 : 14;
   const legend = options.legend
     ? legendRows(metrics, width - left - right, lang,
       new Map(metrics.map((metric) => [metric, series.get(metric)?.at(-1)?.points.at(-1)])))
@@ -215,8 +215,10 @@ export function renderChart(points: ChartPoint[], options: ChartOptions): string
 
   if (options.title) {
     const suffix = hasTime ? ` · ${date(maxTime)}` : '';
-    const title = fitText(`${options.repo}${suffix}`, width - 28, 15);
-    svg.push(`<text x="14" y="23" fill="${titleColor}" font-size="15" font-weight="600">${escapeXml(title)}</text>`);
+    const room = width - left - 14;
+    const full = `${options.repo}${suffix}`;
+    const title = fitText(full, room, 15) === full ? full : fitText(options.repo, room, 15);
+    svg.push(`<text x="${num(left)}" y="23" fill="${titleColor}" font-size="15" font-weight="600">${escapeXml(title)}</text>`);
   }
 
   const gridMetric = metrics.includes('downloads') ? 'downloads' : metrics[0];
