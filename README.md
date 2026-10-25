@@ -1,5 +1,7 @@
 # SiYuan Bazaar Stats Graph
 
+English | [简体中文](./README.zh-CN.md)
+
 Static SVG trend charts for [SiYuan Note](https://github.com/siyuan-note/siyuan) bazaar packages, powered by Cloudflare Workers and the public history from [TCOTC/siyuan-bazaar-stats](https://github.com/TCOTC/siyuan-bazaar-stats).
 
 ![Live chart for wmy2981/ai-title-siyuan](https://siyuan-bazaar-stats-graph.sr1.cc.cd/api/chart/wmy2981/ai-title-siyuan?metrics=downloads&range=90d&area=true)
@@ -73,21 +75,6 @@ npm run build        # cf build
 npm run check        # all local checks
 npm run deploy       # cf deploy, after cf auth login
 ```
-
-### GitHub Actions deployment
-
-`CI` runs on every branch push, every pull request and manual dispatch. It runs tests, type checks and `cf deploy --prebuilt --dry-run`.
-
-`Deploy` runs after a successful `CI` run on `main`, or by manual dispatch. It rebuilds the same commit and deploys with `cf deploy --prebuilt`. Manual deployment does not require a preceding CI run; the automatic `workflow_run` path does.
-
-Add these repository secrets under **Settings → Secrets and variables → Actions**:
-
-- `CLOUDFLARE_API_TOKEN`: a token with permission to edit Workers in the account.
-- `CLOUDFLARE_ACCOUNT_ID`: the account ID shown in the Cloudflare dashboard.
-
-Then add the repository variable `CLOUDFLARE_DEPLOY_ENABLED` with value `true` under **Settings → Secrets and variables → Actions → Variables**. The opt-in variable prevents a failing deployment before credentials are configured.
-
-No credentials are committed to this repository. Forks can run the validation workflow without secrets; deployment only runs on `main` in the upstream repository.
 
 ## License
 
