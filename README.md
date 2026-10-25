@@ -50,6 +50,8 @@ The response is always a self-contained `image/svg+xml` document, including inpu
 
 `lang=auto`, the default, ships both English and Chinese labels in one SVG and selects them from the reader's interface language preferences. Set `lang=en` or `lang=zh` for a fixed language.
 
+Colours are delivered as CSS custom properties in an inline `<style>` element, so the SVG depends on CSS variable support. Browsers render it normally, but renderers that ignore `var()` (cairosvg, for example) drop every text element — title, axis labels and legend — and keep only the curves and grid; `lang` and `theme` do not avoid this. Use a CSS-capable renderer for PDF or PNG pipelines.
+
 `rating` is the weighted average from 1 to 5. `ratings` is the number of ratings. Downloads use the left axis; rating metrics use the right. When both rating metrics are selected, paired right-axis labels show average / count. Lines use actual observation timestamps rather than assuming evenly spaced samples. Gaps in rating history are not connected. A range beginning after the first observation carries the last known value to the start boundary, which correctly represents cumulative metrics.
 
 ### Examples
