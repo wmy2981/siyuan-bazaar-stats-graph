@@ -1,6 +1,7 @@
 (() => {
 	'use strict';
 
+	/** Page copy for both UI languages; keys match the data-i18n attributes. */
 	const messages = {
 		en: {
 			'meta.title': 'Bazaar Graph — SiYuan package chart builder',
@@ -170,12 +171,15 @@
 		},
 	};
 
+	/** Page theme and language, resolved before the first paint where possible. */
 	const THEME_STORAGE_KEY = 'siyuan-bazaar-page-theme';
 	const PAGE_THEME_MODES = ['auto', 'light', 'dark'];
 	const systemDark = window.matchMedia('(prefers-color-scheme: dark)');
 	const form = document.querySelector('#chart-form');
+	// The script is inlined into every page build; leave early if the form is absent.
 	if (!form) return;
 
+	/** Element handles are resolved once; the builder markup is static. */
 	const repoInput = document.querySelector('#repo');
 	const repoError = document.querySelector('#repo-error');
 	const dateError = document.querySelector('#date-error');
@@ -209,6 +213,7 @@
 	const defaults = { width: 800, height: 400 };
 	const urlDefaults = { width: 800, height: 400 };
 
+	/** Mutable UI state: language, theme, debounce timer and the in-flight preview request. */
 	let pageLang = detectPageLanguage();
 	let pageThemeMode = PAGE_THEME_MODES.includes(document.documentElement.dataset.pageThemeMode) ? document.documentElement.dataset.pageThemeMode : 'auto';
 	let repoTouched = false;
@@ -218,11 +223,13 @@
 	let previewRequest = 0;
 	let metricsNoticeShown = false;
 
+	/** Pick Chinese when the browser's first language preference is Chinese. */
 	function detectPageLanguage() {
 		const preferred = navigator.languages?.[0] || navigator.language || 'en';
 		return /^zh\b/i.test(preferred) ? 'zh' : 'en';
 	}
 
+	/** Apply a theme to the document and optionally persist the choice. */
 	function applyPageTheme(mode, persist = false) {
 		pageThemeMode = PAGE_THEME_MODES.includes(mode) ? mode : 'auto';
 		const resolved = pageThemeMode === 'auto' ? (systemDark.matches ? 'dark' : 'light') : pageThemeMode;
@@ -239,6 +246,7 @@
 		}
 	}
 
+	/** Look up a message and substitute its {placeholders}. */
 	function t(key, values) {
 		let message = messages[pageLang][key] ?? messages.en[key] ?? key;
 		if (values) {
@@ -249,6 +257,7 @@
 		return message;
 	}
 
+	/** Accept owner/repo, a GitHub URL or an ssh remote and normalise it. */
 	function normalizeRepo(raw) {
 		let value = raw.trim();
 		if (!value) return null;
@@ -260,27 +269,32 @@
 		return match ? `${match[1]}/${match[2]}` : null;
 	}
 
+	/** Return the checked metrics in a fixed order so the legend never jumps. */
 	function selectedMetrics() {
 		const selected = new Set(metricInputs.filter((input) => input.checked).map((input) => input.value));
 		return metricOrder.filter((metric) => selected.has(metric));
 	}
 
+	/** Read the checked value of a radio group. */
 	function selectedValue(inputs) {
 		return inputs.find((input) => input.checked)?.value;
 	}
 
+	/** Round and clamp a number input into its allowed range. */
 	function clampInteger(input, fallback, min, max) {
 		const value = Number(input.value);
 		if (!Number.isFinite(value)) return fallback;
 		return Math.min(max, Math.max(min, Math.round(value)));
 	}
 
+	/** ISO date N days ago in UTC, used to seed the custom range. */
 	function utcDate(daysAgo = 0) {
 		const date = new Date();
 		date.setUTCDate(date.getUTCDate() - daysAgo);
 		return date.toISOString().slice(0, 10);
 	}
 
+	/** Show the date fields only for the custom range and seed them once. */
 	function syncCustomDates() {
 		const custom = selectedValue(rangeInputs) === 'custom';
 		customDates.hidden = !custom;
@@ -294,6 +308,7 @@
 		}
 	}
 
+	/** Reflect the preview state in the status pill and its label. */
 	function setRenderState(kind) {
 		renderState.classList.toggle('is-ready', kind === 'ready');
 		renderState.classList.toggle('is-error', kind === 'error');
@@ -308,12 +323,14 @@
 		renderLabel.textContent = t(labels[kind]);
 	}
 
+	/** Mark the preview as busy while a chart request is in flight. */
 	function setLoading() {
 		plotStage.classList.add('is-loading');
 		plotStage.setAttribute('aria-busy', 'true');
 		setRenderState('loading');
 	}
 
+	/** Drop the preview and its object URL, then show the error state. */
 	function setPreviewError() {
 		previewController?.abort();
 		if (previewObjectUrl) URL.revokeObjectURL(previewObjectUrl);
@@ -327,6 +344,7 @@
 		setRenderState('error');
 	}
 
+	/** Clear the preview and the snippets until the form yields a valid URL. */
 	function setEmpty(message) {
 		previewController?.abort();
 		if (previewObjectUrl) URL.revokeObjectURL(previewObjectUrl);
@@ -344,6 +362,7 @@
 		setSnippets('', '', defaults.width, defaults.height);
 	}
 
+	/** Fill the three copyable snippets, keeping the markup highlighted. */
 	function setSnippets(url, alt, width, height) {
 		if (!url) {
 			for (const code of Object.values(codeElements)) code.textContent = '';
@@ -358,9 +377,11 @@
 		for (const button of copyButtons) button.disabled = false;
 	}
 
+	/** Minimal tokenisers: only the parts that matter for these two snippets. */
 	const HTML_TOKENS = /(<\/?)([A-Za-z][\w:-]*)|([A-Za-z_:][\w:.-]*)(\s*=\s*)("[^"]*"|'[^']*')|(\/?>)/g;
 	const MARKDOWN_TOKENS = /(!?\[)([^\]]*)(\]\()([^)]*)(\))/g;
 
+	/** Walk the pattern and escape everything that is not a token. */
 	function paintTokens(source, pattern, render) {
 		let html = '';
 		let index = 0;
@@ -371,10 +392,12 @@
 		return html + escapeHtml(source.slice(index));
 	}
 
+	/** Wrap one token in its highlight span. */
 	function token(name, text) {
 		return `<span class="tok-${name}">${escapeHtml(text)}</span>`;
 	}
 
+	/** Highlight tags, attribute names and quoted values. */
 	function highlightHtml(source) {
 		return paintTokens(source, HTML_TOKENS, (match) => {
 			if (match[2] !== undefined) return token('punct', match[1]) + token('tag', match[2]);
@@ -383,10 +406,12 @@
 		});
 	}
 
+	/** Highlight the image syntax used by a README snippet. */
 	function highlightMarkdown(source) {
 		return paintTokens(source, MARKDOWN_TOKENS, (match) => token('punct', match[1]) + escapeHtml(match[2]) + token('punct', match[3]) + token('url', match[4]) + token('punct', match[5]));
 	}
 
+	/** Escape text before it is written through innerHTML. */
 	function escapeHtml(value) {
 		return String(value)
 			.replaceAll('&', '&amp;')
@@ -395,6 +420,12 @@
 			.replaceAll('>', '&gt;');
 	}
 
+	/**
+	 * Build the chart URL from the form.
+	 *
+	 * Parameters that equal the endpoint defaults are dropped to keep shared links
+	 * short; the language is always written because the chart cannot infer it.
+	 */
 	function buildUrl(repo) {
 		const metrics = selectedMetrics();
 		const range = selectedValue(rangeInputs);
@@ -421,6 +452,7 @@
 		return `${location.origin}/api/chart/${path}?${params.toString().replaceAll('%2C', ',')}`;
 	}
 
+	/** Point the preview at a URL and start loading it. */
 	function updatePreview(url, alt, width, height) {
 		plotEndpoint.textContent = `/api/chart/${normalizeRepo(repoInput.value) || '{owner}/{repo}'}`;
 		openChart.href = url;
@@ -434,6 +466,12 @@
 		loadPreview(url);
 	}
 
+	/**
+	 * Fetch the preview SVG.
+	 *
+	 * Object URLs are revoked on every new request, and responses arriving after a
+	 * newer request has started are ignored so the preview never flickers backwards.
+	 */
 	async function loadPreview(url) {
 		const request = ++previewRequest;
 		previewController?.abort();
@@ -457,6 +495,12 @@
 		}
 	}
 
+	/**
+	 * Recompute the URL and the snippets after a change.
+	 *
+	 * Invalid input short-circuits to an empty state instead of requesting a chart:
+	 * an unparseable repository or inverted dates would only produce an error SVG.
+	 */
 	function update() {
 		clearTimeout(updateTimer);
 		const repo = normalizeRepo(repoInput.value);
@@ -489,11 +533,16 @@
 		updatePreview(url, alt, width, height);
 	}
 
+	/**
+	 * Debounce form input. Typing a repository would otherwise fire one request per
+	 * keystroke, and every miss costs an upstream fetch.
+	 */
 	function scheduleUpdate() {
 		clearTimeout(updateTimer);
 		updateTimer = setTimeout(update, 220);
 	}
 
+	/** Clamp a number input in place on blur. */
 	function clampNumberInput(input, fallback, min, max) {
 		const value = Number(input.value);
 		if (!Number.isFinite(value)) {
@@ -503,6 +552,7 @@
 		}
 	}
 
+	/** Clipboard API, with a textarea fallback for non-secure contexts. */
 	async function writeClipboard(text) {
 		if (navigator.clipboard && window.isSecureContext) {
 			await navigator.clipboard.writeText(text);
@@ -520,6 +570,7 @@
 		if (!copied) throw new Error('Clipboard write failed');
 	}
 
+	/** Restore a copy button's label after the confirmation state. */
 	function resetCopyButton(button) {
 		clearTimeout(button.copyTimer);
 		button.classList.remove('is-copied');
@@ -528,6 +579,7 @@
 		button.setAttribute('title', label);
 	}
 
+	/** Show the copied or failed state on a copy button. */
 	function flashCopyButton(button, key) {
 		clearTimeout(button.copyTimer);
 		button.classList.toggle('is-copied', key === 'action.copied');
@@ -538,6 +590,7 @@
 		}
 	}
 
+	/** Swap every translated string, then re-render the snippets. */
 	function applyLanguage(language) {
 		pageLang = language;
 		document.documentElement.lang = language === 'zh' ? 'zh-CN' : 'en';

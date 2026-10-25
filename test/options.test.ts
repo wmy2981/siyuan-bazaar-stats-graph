@@ -1,3 +1,4 @@
+/** Query-string validation and history slicing. */
 import { describe, expect, it } from 'vitest'
 import { parseOptions, sliceHistory } from '../src/options'
 

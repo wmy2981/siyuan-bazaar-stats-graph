@@ -1,12 +1,21 @@
+/**
+ * Query-string parsing for the chart endpoint.
+ *
+ * Every rejection is a ChartError with a localisable code rather than a TypeError,
+ * because the Worker renders those as SVG and a broken embed stays readable.
+ */
 import { ChartError } from './data'
 import type { ChartLanguage, ChartOptions, Metric, Theme } from './chart'
 
+/** Metrics the metrics parameter accepts, in the order they are drawn and listed. */
 const metrics: Metric[] = ['downloads', 'rating', 'ratings']
+/** Range names to day counts; `all` means the whole history and maps to undefined. */
 const ranges: Record<string, number | undefined> = { '30d': 30, '90d': 90, '1y': 365, all: undefined }
 
 export function parseOptions(url: URL): ChartOptions & { start?: number; end?: number } {
   const allowed = new Set(['metrics', 'theme', 'lang', 'width', 'height', 'title', 'legend', 'grid', 'area', 'range', 'start', 'end'])
   for (const name of url.searchParams.keys()) if (!allowed.has(name)) throw new ChartError('unknownParameter', { name })
+  /** Read a parameter once; repetition is rejected instead of silently ignored. */
   const one = (name: string) => {
     const values = url.searchParams.getAll(name)
     if (values.length > 1) throw new ChartError('repeatedParameter', { name })
@@ -19,6 +28,7 @@ export function parseOptions(url: URL): ChartOptions & { start?: number; end?: n
   if (theme !== 'light' && theme !== 'dark' && theme !== 'auto') throw new ChartError('unknownTheme')
   const lang = one('lang') || 'auto'
   if (lang !== 'en' && lang !== 'zh' && lang !== 'auto') throw new ChartError('unknownLanguage')
+  /** Numeric parameters are whole numbers inside an explicit range. */
   const number = (name: string, fallback: number, min: number, max: number) => {
     const raw = one(name)
     if (!raw) return fallback
@@ -27,6 +37,7 @@ export function parseOptions(url: URL): ChartOptions & { start?: number; end?: n
     if (value < min || value > max) throw new ChartError('outOfRangeParameter', { name, min, max })
     return value
   }
+  /** Boolean parameters accept only the literal true or false. */
   const bool = (name: string, fallback: boolean) => {
     const raw = one(name)
     if (!raw) return fallback
@@ -35,6 +46,7 @@ export function parseOptions(url: URL): ChartOptions & { start?: number; end?: n
   }
   const range = one('range') || 'all'
   if (!(range in ranges)) throw new ChartError('unknownRange')
+  /** Dates are UTC days; an end date covers the whole day. */
   const parseDate = (name: string, end = false) => {
     const raw = one(name)
     if (!raw) return undefined
@@ -58,6 +70,13 @@ export function parseOptions(url: URL): ChartOptions & { start?: number; end?: n
   }
 }
 
+/**
+ * Restrict a history to a time window.
+ *
+ * When the window starts after the first observation, the last value before the
+ * window is repeated at the boundary so cumulative metrics still read correctly
+ * from the left edge of the chart.
+ */
 export function sliceHistory<T extends { t: number }>(history: T[], start?: number, end?: number): T[] {
   const filtered = history.filter(p => (!start || p.t >= start) && (!end || p.t <= end))
   if (start && filtered.length) {

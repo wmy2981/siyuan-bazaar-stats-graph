@@ -1,3 +1,4 @@
+/** Upstream contract: mirror fallback, snapshot replay and error mapping. */
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ChartError, loadPackage } from '../src/data'
 import { localizeError } from '../src/i18n'

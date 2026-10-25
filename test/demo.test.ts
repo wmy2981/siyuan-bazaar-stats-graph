@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs'
 import vm from 'node:vm'
+/** Runs the inlined builder script against a minimal DOM harness. */
 import { describe, expect, it, vi } from 'vitest'
 
 const script = readFileSync(new URL('../src/demo/demo.js', import.meta.url), 'utf8')

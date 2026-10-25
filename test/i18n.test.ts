@@ -1,3 +1,4 @@
+/** Every error code must exist in both languages, placeholders included. */
 import { describe, expect, it } from 'vitest'
 import { ERRORS, localizeError, type ErrorCode, type ErrorValues } from '../src/i18n'
 

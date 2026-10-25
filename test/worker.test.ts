@@ -1,8 +1,10 @@
+/** Worker contract: routing, caching, error surfaces and response headers. */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const summary = { packages: [{ name: 'sample', repo: 'owner/repo' }] }
 const detail = { name: 'sample', repo: 'owner/repo', current: { d: 42 }, history: [{ t: 1787702400, d: 20 }, { t: 1790294400, d: 42, a: 4.5, c: 2 }] }
 
+// Stub the Worker-only modules so the entry point can run under Node.
 vi.mock('cloudflare:workers', () => ({ waitUntil: (promise: Promise<unknown>) => promise.catch(() => {}) }))
 vi.stubGlobal('caches', { default: { match: vi.fn(async () => undefined), put: vi.fn(async () => undefined) } })
 vi.spyOn(globalThis, 'fetch').mockImplementation(async input => {
