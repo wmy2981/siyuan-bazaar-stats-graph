@@ -61,6 +61,17 @@ describe('renderChart', () => {
     expect(fixed).not.toContain('systemLanguage');
   });
 
+  it('keeps a measured gap between two full-width legend labels', () => {
+    const svg = renderChart([{ t: time(1), d: 10, a: 3.5 }, { t: time(2), d: 20, a: 4.5 }], options({
+      metrics: ['downloads', 'rating'], lang: 'zh',
+    }));
+    const items = [...svg.matchAll(/<line data-legend="([^"]+)" x1="([\d.]+)"[^>]*\/><text x="([\d.]+)"[^>]*>([^<]+)<\/text>/g)];
+    expect(items).toHaveLength(2);
+    const nextLineX = Number(items[1][2]);
+    const firstTextX = Number(items[0][3]);
+    expect(nextLineX - firstTextX).toBeGreaterThan(100);
+  });
+
   it('uses the correct metric fields and colors', () => {
     const svg = renderChart([
       { t: time(1), d: 10, a: 3.5, c: 4 },
@@ -170,7 +181,7 @@ describe('renderChart', () => {
     const baseline = Number(/<line x1="[\d.]+" y1="([\d.]+)"/.exec(svg)?.[1]);
     const firstLegend = Number(/<text x="[\d.]+" y="([\d.]+)"[^>]*>Downloads/.exec(svg)?.[1]);
     expect(baseline).toBeLessThan(firstLegend);
-    expect(200 - baseline).toBeLessThanOrEqual(67);
+    expect(200 - baseline).toBeLessThanOrEqual(71);
     const dates = [...svg.matchAll(/font-size="10">(2024-[^<]+)<\/text>/g)].map(match => match[1]);
     expect(dates.length).toBeLessThanOrEqual(3);
   });

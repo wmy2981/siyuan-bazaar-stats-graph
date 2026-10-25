@@ -28,6 +28,10 @@ type Segment = { start: number; points: Datum[] };
 type Scale = { min: number; max: number; ticks: number[] };
 
 const FONT = "-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif";
+const LEGEND_LINE_WIDTH = 12;
+const LEGEND_TEXT_OFFSET = 18;
+const LEGEND_ITEM_GAP = 22;
+const LEGEND_ROW_HEIGHT = 15;
 const COLORS: Record<Metric, string> = {
   downloads: '#0f9f8f',
   rating: '#8264c6',
@@ -97,24 +101,43 @@ function sample(data: Datum[], limit = 500): Datum[] {
   return [...forced].sort((a, b) => a - b).map((index) => data[index]);
 }
 
-function fitText(text: string, width: number, fontSize: number): string {
-  const max = Math.max(1, Math.floor(width / (fontSize * 0.58)));
-  return text.length <= max ? text : `${text.slice(0, Math.max(1, max - 1))}…`;
+function measureText(text: string, fontSize: number): number {
+  let width = 0;
+  for (const character of text) {
+    const code = character.codePointAt(0)!;
+    if (code === 32) width += fontSize * 0.32;
+    else if (code > 0xff) width += fontSize;
+    else width += fontSize * 0.6;
+  }
+  return width;
 }
 
+function fitText(text: string, width: number, fontSize: number): string {
+  if (measureText(text, fontSize) <= width) return text;
+  let fitted = '';
+  for (const character of text) {
+    if (measureText(`${fitted}${character}…`, fontSize) > width) break;
+    fitted += character;
+  }
+  return `${fitted}…`;
+}
+
+type LegendItem = { metric: Metric; label: string; width: number };
+
 function legendRows(metrics: Metric[], width: number, lang: 'en' | 'zh',
-  latest: Map<Metric, Datum | undefined>): { metric: Metric; label: string }[][] {
+  latest: Map<Metric, Datum | undefined>): LegendItem[][] {
   const items = metrics.map((metric) => {
     const value = latest.get(metric);
     const axis = metric === 'downloads'
       ? (lang === 'zh' ? '左轴' : 'L')
       : (lang === 'zh' ? '右轴' : 'R');
-    return { metric, label: `${LABELS[metric][lang]} (${axis}) ${value ? formatValue(value.value) : '—'}` };
+    const label = `${LABELS[metric][lang]} (${axis}) ${value ? formatValue(value.value) : '—'}`;
+    return { metric, label, width: measureText(label, 10) };
   });
-  const rows: { metric: Metric; label: string }[][] = [[]];
+  const rows: LegendItem[][] = [[]];
   let used = 0;
   for (const item of items) {
-    const itemWidth = item.label.length * 6 + 23;
+    const itemWidth = LEGEND_TEXT_OFFSET + item.width + LEGEND_ITEM_GAP;
     if (rows[rows.length - 1].length && used + itemWidth > width) {
       rows.push([]);
       used = 0;
@@ -211,7 +234,7 @@ function renderChartDocument(points: ChartPoint[], options: ChartOptions, lang: 
     ? legendRows(metrics, width - left - right, lang,
       new Map(metrics.map((metric) => [metric, series.get(metric)?.at(-1)?.points.at(-1)])))
     : [];
-  const bottom = 27 + Math.max(0, legend.length - 1) * 13 + (legend.length ? 14 : 0);
+  const bottom = 27 + Math.max(0, legend.length - 1) * LEGEND_ROW_HEIGHT + (legend.length ? 14 : 0);
   const plotWidth = Math.max(1, width - left - right);
   const plotHeight = Math.max(1, height - titleSpace - bottom);
   const x = (t: number): number => hasTime && maxTime !== minTime
@@ -320,11 +343,13 @@ function renderChartDocument(points: ChartPoint[], options: ChartOptions, lang: 
   }
   for (let row = 0; row < legend.length; row++) {
     let xx = left;
-    const yy = height - (legend.length - row - 1) * 13 - 6;
-    for (const { metric, label } of legend[row]) {
-      svg.push(`<line data-legend="${metric}" x1="${num(xx)}" y1="${num(yy - 3)}" x2="${num(xx + 12)}" y2="${num(yy - 3)}" stroke="${COLORS[metric]}" stroke-width="2"/>`);
-      svg.push(`<text x="${num(xx + 17)}" y="${num(yy)}" ${paint('foreground', 'fill')} font-size="10">${escapeXml(fitText(label, width - xx - 22, 10))}</text>`);
-      xx += label.length * 6 + 23;
+    const yy = height - (legend.length - row - 1) * LEGEND_ROW_HEIGHT - 6;
+    for (const { metric, label, width: labelWidth } of legend[row]) {
+      const textX = xx + LEGEND_TEXT_OFFSET;
+      const available = Math.max(1, width - right - textX - 2);
+      svg.push(`<line data-legend="${metric}" x1="${num(xx)}" y1="${num(yy - 3)}" x2="${num(xx + LEGEND_LINE_WIDTH)}" y2="${num(yy - 3)}" stroke="${COLORS[metric]}" stroke-width="2"/>`);
+      svg.push(`<text x="${num(textX)}" y="${num(yy)}" ${paint('foreground', 'fill')} font-size="10">${escapeXml(fitText(label, available, 10))}</text>`);
+      xx += LEGEND_TEXT_OFFSET + labelWidth + LEGEND_ITEM_GAP;
     }
   }
   if (!bodyOnly) svg.push('</svg>');
