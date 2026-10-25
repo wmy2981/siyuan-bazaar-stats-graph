@@ -20,7 +20,7 @@ export interface PackageHistory { name: string; displayName: string; history: Ch
 
 async function get(url: string, timeout = 15_000): Promise<Response> {
   try {
-    return await fetch(url, { signal: AbortSignal.timeout(timeout), headers: { 'User-Agent': 'siyuan-bazaar-stats-graph/1.0', Accept: 'application/json, application/x-ndjson, text/plain' } })
+    return await fetch(url, { signal: AbortSignal.timeout(timeout), cf: { cacheEverything: false, cacheTtl: 0 }, headers: { 'User-Agent': 'siyuan-bazaar-stats-graph/1.0', Accept: 'application/json, application/x-ndjson, text/plain' } })
   } catch {
     throw new ChartError('Data source is temporarily unavailable', 'Please try again in a minute.', 502)
   }

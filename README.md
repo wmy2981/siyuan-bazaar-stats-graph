@@ -2,15 +2,17 @@
 
 Static SVG trend charts for [SiYuan Note](https://github.com/siyuan-note/siyuan) bazaar packages, powered by Cloudflare Workers and the public history from [TCOTC/siyuan-bazaar-stats](https://github.com/TCOTC/siyuan-bazaar-stats).
 
-![Live chart for the SiYuan sample plugin](https://siyuan-bazaar-stats-graph.2396772981.workers.dev/api/chart/siyuan-note/plugin-sample?metrics=downloads&range=90d&area=true)
+![Live chart for the SiYuan sample plugin](https://siyuan-bazaar-stats-graph.sr1.cc.cd/api/chart/siyuan-note/plugin-sample?metrics=downloads&range=90d&area=true)
 
 ## Embed in a README
 
 ```md
-![Package trends](https://siyuan-bazaar-stats-graph.2396772981.workers.dev/api/chart/OWNER/REPO?metrics=downloads,rating,ratings&range=90d)
+![Package trends](https://siyuan-bazaar-stats-graph.sr1.cc.cd/api/chart/OWNER/REPO?metrics=downloads,rating,ratings&range=90d)
 ```
 
 Replace `OWNER/REPO` with the package's GitHub repository. The service resolves it to the bazaar package through the official package catalog. No API key is required.
+
+Production base URL: `https://siyuan-bazaar-stats-graph.sr1.cc.cd`
 
 ## Endpoint
 
@@ -51,9 +53,10 @@ The SVG is intentionally static: no scripts, external resources, cookies or runt
 ## Data
 
 - Package repository mapping and current catalog: official SiYuan bazaar indexes.
-- Historical values: TCOTC/siyuan-bazaar-stats, collected roughly every 30 minutes when values change.
+- Historical values: TCOTC/siyuan-bazaar-stats, scheduled to collect every 30 minutes when values change. GitHub's scheduled workflows may be delayed by hours; this service cannot publish observations that the upstream has not collected yet.
 - Preferred history: the upstream generated package detail JSON; raw monthly snapshots are used as fallback.
 - Charts display the latest observation date. The source began collecting history in August 2026; earlier dates have no data.
+- Every chart request after the 30-minute edge-cache lifetime fetches the current upstream package data without an additional CDN cache layer. New upstream observations therefore appear after the upstream site finishes publishing and the chart cache expires. Raw GitHub snapshots remain available as fallback.
 
 This project does not copy or redistribute a separate history database. Upstream availability and corrections flow into subsequently refreshed charts.
 

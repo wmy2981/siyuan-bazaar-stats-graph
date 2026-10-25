@@ -46,6 +46,12 @@ describe('renderChart', () => {
     expect(svg).toContain('Downloads (L) 20');
     expect(svg).toContain('Rating (R) 4.5');
     expect(svg).toContain('Ratings (R) 8');
+    expect(svg).toContain('data-legend="ratings"');
+    for (const metric of ['downloads', 'rating', 'ratings']) {
+      const line = svg.match(new RegExp(`<polyline data-metric="${metric}"[^>]*stroke="([^"]+)"`))?.[1];
+      const legend = svg.match(new RegExp(`<line data-legend="${metric}"[^>]*stroke="([^"]+)"`))?.[1];
+      expect(legend, `${metric} legend must use its line color`).toBe(line);
+    }
     expect(svg).toMatch(/>1 \/ \d+<\/text>/);
   });
 

@@ -17,6 +17,7 @@ describe('package data', () => {
     })
     const result = await loadPackage('owner/repo')
     expect(result.history).toEqual([{ t: 100_000, d: 20, a: 3, c: 2 }])
+    expect(vi.mocked(fetch).mock.calls[0]?.[1]).toMatchObject({ cf: { cacheEverything: false, cacheTtl: 0 } })
   })
   it('converts upstream Unix seconds to SVG milliseconds', async () => {
     mockFetch({

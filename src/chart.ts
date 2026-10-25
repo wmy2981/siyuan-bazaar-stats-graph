@@ -93,23 +93,23 @@ function fitText(text: string, width: number, fontSize: number): string {
 }
 
 function legendRows(metrics: Metric[], width: number, lang: 'en' | 'zh',
-  latest: Map<Metric, Datum | undefined>): string[][] {
+  latest: Map<Metric, Datum | undefined>): { metric: Metric; label: string }[][] {
   const items = metrics.map((metric) => {
     const value = latest.get(metric);
     const axis = metric === 'downloads'
       ? (lang === 'zh' ? '左轴' : 'L')
       : (lang === 'zh' ? '右轴' : 'R');
-    return `${LABELS[metric][lang]} (${axis}) ${value ? formatValue(value.value) : '—'}`;
+    return { metric, label: `${LABELS[metric][lang]} (${axis}) ${value ? formatValue(value.value) : '—'}` };
   });
-  const rows: string[][] = [[]];
+  const rows: { metric: Metric; label: string }[][] = [[]];
   let used = 0;
-  for (let i = 0; i < items.length; i++) {
-    const itemWidth = items[i].length * 6 + 23;
+  for (const item of items) {
+    const itemWidth = item.label.length * 6 + 23;
     if (rows[rows.length - 1].length && used + itemWidth > width) {
       rows.push([]);
       used = 0;
     }
-    rows[rows.length - 1].push(items[i]);
+    rows[rows.length - 1].push(item);
     used += itemWidth;
   }
   return rows;
@@ -291,11 +291,10 @@ export function renderChart(points: ChartPoint[], options: ChartOptions): string
   for (let row = 0; row < legend.length; row++) {
     let xx = left;
     const yy = height - (legend.length - row - 1) * 13 - 6;
-    for (const item of legend[row]) {
-      const metric = metrics.find((candidate) => item.startsWith(LABELS[candidate][lang]))!;
-      svg.push(`<line x1="${num(xx)}" y1="${num(yy - 3)}" x2="${num(xx + 12)}" y2="${num(yy - 3)}" stroke="${COLORS[metric]}" stroke-width="2"/>`);
-      svg.push(`<text x="${num(xx + 17)}" y="${num(yy)}" fill="${foreground}" font-size="10">${escapeXml(fitText(item, width - xx - 22, 10))}</text>`);
-      xx += item.length * 6 + 23;
+    for (const { metric, label } of legend[row]) {
+      svg.push(`<line data-legend="${metric}" x1="${num(xx)}" y1="${num(yy - 3)}" x2="${num(xx + 12)}" y2="${num(yy - 3)}" stroke="${COLORS[metric]}" stroke-width="2"/>`);
+      svg.push(`<text x="${num(xx + 17)}" y="${num(yy)}" fill="${foreground}" font-size="10">${escapeXml(fitText(label, width - xx - 22, 10))}</text>`);
+      xx += label.length * 6 + 23;
     }
   }
   svg.push('</svg>');

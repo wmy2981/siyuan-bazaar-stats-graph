@@ -6,5 +6,6 @@ export default defineConfig({
     name: "siyuan-bazaar-stats-graph",
     compatibilityDate: "2026-10-19",
     entrypoint,
+    domains: ["siyuan-bazaar-stats-graph.sr1.cc.cd"],
   },
 });
