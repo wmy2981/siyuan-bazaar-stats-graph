@@ -1,23 +1,37 @@
 import { waitUntil } from 'cloudflare:workers'
 import { renderChart, renderErrorChart } from './chart'
+import demoHtml from './demo.html?raw'
+import demoScript from './demo.js?raw'
+import demoStyles from './demo.css?raw'
 import { ChartError, loadPackage } from './data'
 import { parseOptions, sliceHistory } from './options'
 
 const route = /^\/api\/chart\/([A-Za-z0-9](?:[A-Za-z0-9-]{0,38}))\/([A-Za-z0-9_.-]{1,100})\/?$/
 const SECURITY = { 'X-Content-Type-Options': 'nosniff', 'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline'; sandbox", 'Access-Control-Allow-Origin': '*' }
+const DEMO_SECURITY = {
+  'X-Content-Type-Options': 'nosniff',
+  'Referrer-Policy': 'strict-origin-when-cross-origin',
+  'Content-Security-Policy': "default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+}
+const demoPage = demoHtml
+  .replace('/*__STYLE__*/', () => demoStyles)
+  .replace('/*__SCRIPT__*/', () => demoScript)
 
 function svg(body: string, status = 200, error = false, cache = 'MISS'): Response {
   return new Response(body, { status, headers: { ...SECURITY, 'Content-Type': 'image/svg+xml; charset=utf-8', 'Cache-Control': `public, max-age=60, s-maxage=${error ? 60 : 1800}`, 'CDN-Cache-Control': `max-age=${error ? 60 : 1800}`, 'X-Chart-Status': error ? 'error' : 'ok', 'X-Cache': cache, Vary: 'Accept-Encoding' } })
+}
+
+function demo(request: Request): Response {
+  return new Response(request.method === 'HEAD' ? null : demoPage, {
+    headers: { ...DEMO_SECURITY, 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'public, max-age=300', Vary: 'Accept-Encoding' },
+  })
 }
 
 export default {
   async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url)
     if (request.method !== 'GET' && request.method !== 'HEAD') return svg(renderErrorChart('Method not allowed', 'Use a GET request for this SVG endpoint.'), 200, true)
-    if (url.pathname === '/') {
-      const example = `${url.origin}/api/chart/siyuan-note/plugin-sample?metrics=downloads,rating,ratings&range=90d`
-      return svg(renderErrorChart('SiYuan Bazaar Trends', `Add /api/chart/{owner}/{repo} to this URL. Example: ${example}`, 'root'))
-    }
+    if (url.pathname === '/' || url.pathname === '/index.html') return demo(request)
     if (url.pathname === '/favicon.ico') return new Response(null, { status: 204 })
     const match = route.exec(url.pathname)
     if (!match) return svg(renderErrorChart('Invalid chart URL', 'Use /api/chart/{owner}/{repo}?metrics=downloads,rating,ratings'), 200, true)

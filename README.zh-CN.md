@@ -6,6 +6,10 @@
 
 ![wmy2981/ai-title-siyuan 的实时图表](https://siyuan-bazaar-stats-graph.sr1.cc.cd/api/chart/wmy2981/ai-title-siyuan?metrics=downloads&range=90d&area=true&lang=zh)
 
+## 图表生成器
+
+打开[交互式图表生成器](https://siyuan-bazaar-stats-graph.sr1.cc.cd/)：输入仓库、调整全部图表参数、实时预览 SVG，并复制图表链接、HTML 图片标签或 README Markdown。页面语言跟随浏览器，图表语言默认跟随页面。
+
 ## 嵌入到 README
 
 ```md

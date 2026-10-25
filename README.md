@@ -6,6 +6,10 @@ Static SVG trend charts for [SiYuan Note](https://github.com/siyuan-note/siyuan)
 
 ![Live chart for wmy2981/ai-title-siyuan](https://siyuan-bazaar-stats-graph.sr1.cc.cd/api/chart/wmy2981/ai-title-siyuan?metrics=downloads&range=90d&area=true)
 
+## Chart builder
+
+Open the [interactive chart builder](https://siyuan-bazaar-stats-graph.sr1.cc.cd/) to choose a repository and every chart parameter, preview the SVG live, and copy the chart URL, HTML image tag, or README Markdown. The page follows your browser language, and the chart language follows the page by default.
+
 ## Embed in a README
 
 ```md

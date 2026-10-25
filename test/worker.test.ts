@@ -13,6 +13,26 @@ vi.spyOn(globalThis, 'fetch').mockImplementation(async input => {
 })
 const { default: worker } = await import('../src/index')
 
+describe('chart builder page', () => {
+  it.each(['/', '/index.html'])('serves the interactive demo at %s', async path => {
+    const response = await worker.fetch(new Request(`https://charts.test${path}`))
+    const body = await response.text()
+    expect(response.headers.get('content-type')).toContain('text/html')
+    expect(response.headers.get('content-security-policy')).toContain("script-src 'unsafe-inline'")
+    expect(body).toContain('id="chart-form"')
+    expect(body).toContain('value="wmy2981/ai-title-siyuan"')
+    expect(body).toContain('data-copy-key="markdown"')
+    expect(body).not.toContain('/*__STYLE__*/')
+    expect(body).not.toContain('/*__SCRIPT__*/')
+  })
+  it('supports HEAD for the demo page', async () => {
+    const response = await worker.fetch(new Request('https://charts.test/', { method: 'HEAD' }))
+    expect(response.status).toBe(200)
+    expect(response.headers.get('content-type')).toContain('text/html')
+    expect(await response.text()).toBe('')
+  })
+})
+
 describe('SVG Worker', () => {
   beforeEach(() => vi.mocked(caches.default.match).mockClear())
   it('returns a real, self-contained SVG with Unix timestamps converted', async () => {
