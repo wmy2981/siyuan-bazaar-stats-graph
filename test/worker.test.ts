@@ -72,6 +72,13 @@ describe('SVG Worker', () => {
     expect(body).toContain('No history in this date range')
     expect(body).toContain('该时间范围内没有历史数据')
   })
+  it('filters custom date ranges using UTC timestamps', async () => {
+    const response = await worker.fetch(new Request('https://charts.test/api/chart/owner/repo?metrics=downloads&start=2026-09-01&end=2026-09-30&lang=en'))
+    const body = await response.text()
+    expect(response.headers.get('x-chart-status')).toBe('ok')
+    expect(body).toContain('data-metric="downloads"')
+    expect(body).toContain('owner/repo · 2026-09-25')
+  })
   it('serves the last successful chart for one day during upstream failure', async () => {
     const cached = new Response('<svg>previous</svg>', { headers: { 'X-Fetched-At': new Date().toISOString(), 'X-Chart-Status': 'ok' } })
     vi.mocked(caches.default.match).mockResolvedValueOnce(undefined).mockResolvedValueOnce(cached)

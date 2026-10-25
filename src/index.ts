@@ -49,7 +49,11 @@ export default {
       const cached = await caches.default.match(cacheKey)
       if (cached) return cached
       const pkg = await loadPackage(`${match[1]}/${match[2]}`)
-      const history = sliceHistory(pkg.history, options.start, options.end)
+      const history = sliceHistory(
+        pkg.history,
+        options.start === undefined ? undefined : options.start * 1000,
+        options.end === undefined ? undefined : options.end * 1000,
+      )
       if (!history.length) throw new ChartError('No history in this date range', 'Try range=all or an earlier start date.', 404)
       const chart = renderChart(history, options)
       const response = svg(chart)
