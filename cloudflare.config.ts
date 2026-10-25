@@ -7,5 +7,14 @@ export default defineConfig({
     compatibilityDate: "2026-10-19",
     entrypoint,
     domains: ["siyuan-bazaar-stats-graph.sr1.cc.cd"],
+    observability: {
+      enabled: true,
+      redactQueryString: true,
+      logs: {
+        enabled: true,
+        invocationLogs: true,
+        persist: true,
+      },
+    },
   },
 });
