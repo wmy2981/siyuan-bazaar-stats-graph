@@ -19,6 +19,7 @@ describe('chart builder page', () => {
     const body = await response.text()
     expect(response.headers.get('content-type')).toContain('text/html')
     expect(response.headers.get('content-security-policy')).toContain("script-src 'unsafe-inline'")
+    expect(response.headers.get('content-security-policy')).toContain('https://static.cloudflareinsights.com')
     expect(body).toContain('id="chart-form"')
     expect(body).toContain('value="wmy2981/ai-title-siyuan"')
     expect(body).toContain('data-copy-key="markdown"')
@@ -30,6 +31,11 @@ describe('chart builder page', () => {
     expect(response.status).toBe(200)
     expect(response.headers.get('content-type')).toContain('text/html')
     expect(await response.text()).toBe('')
+  })
+  it('serves a crawlable robots.txt', async () => {
+    const response = await worker.fetch(new Request('https://charts.test/robots.txt'))
+    expect(response.headers.get('content-type')).toContain('text/plain')
+    expect(await response.text()).toContain('User-agent: *')
   })
 })
 

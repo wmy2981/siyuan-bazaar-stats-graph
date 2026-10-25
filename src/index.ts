@@ -41,6 +41,7 @@ export default {
     if (request.method !== 'GET' && request.method !== 'HEAD') return svg(errorChart(url, 'Method not allowed', 'Use a GET request for this SVG endpoint.'), 200, true)
     if (url.pathname === '/' || url.pathname === '/index.html') return demo(request)
     if (url.pathname === '/favicon.ico') return new Response(null, { status: 204 })
+    if (url.pathname === '/robots.txt') return new Response(request.method === 'HEAD' ? null : 'User-agent: *\nAllow: /\n', { headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'public, max-age=3600' } })
     const match = route.exec(url.pathname)
     if (!match) return svg(errorChart(url, 'Invalid chart URL', 'Use /api/chart/{owner}/{repo}?metrics=downloads,rating,ratings'), 200, true)
     try {
