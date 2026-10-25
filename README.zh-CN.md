@@ -31,7 +31,7 @@ GET /api/chart/{owner}/{repo}
 | `metrics` | 逗号分隔的 `downloads`、`rating`、`ratings` | `downloads` |
 | `range` | `30d`、`90d`、`1y`、`all` | `all` |
 | `start`、`end` | UTC 日期，格式 `YYYY-MM-DD`；与 `range` 二选一 | — |
-| `theme` | `light`、`dark` | `light` |
+| `theme` | `light`、`dark`、`auto` | `auto` |
 | `width` | 320 到 1600 之间的整数 | `800` |
 | `height` | 200 到 1000 之间的整数 | `400` |
 | `title` | `true`、`false` | `true` |
@@ -39,6 +39,8 @@ GET /api/chart/{owner}/{repo}
 | `grid` | `true`、`false` | `true` |
 | `area` | `true`、`false`；填充下载量曲线下方区域 | `false` |
 | `lang` | `en`、`zh` | `en` |
+
+`theme=auto`（默认）时同一份 SVG 自带两套配色，按访问者系统的深浅色偏好呈现。GitHub 页面主题无法传递给图片，因此系统深色配浅色 GitHub 时仍会显示深色卡片；需要固定外观时显式指定 `theme`。
 
 `rating` 是 1 到 5 的加权平均分，`ratings` 是评分人数。下载量使用左侧坐标轴，评分指标使用右侧坐标轴。同时选择两个评分指标时，右侧坐标轴标签成对显示平均分 / 人数。折线使用真实的观测时间戳，不假设采样间隔均匀。评分历史中的空缺不会被连线。若所选范围起点晚于首次观测时间，则把最后一次已知值延伸到起点边界，这对累计指标是正确表示。
 

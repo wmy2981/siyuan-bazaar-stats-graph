@@ -1,5 +1,5 @@
 export type Metric = 'downloads' | 'rating' | 'ratings';
-export type Theme = 'light' | 'dark';
+export type Theme = 'light' | 'dark' | 'auto';
 
 export interface ChartPoint {
   t: number;
@@ -36,6 +36,14 @@ const LABELS: Record<Metric, { en: string; zh: string }> = {
   rating: { en: 'Rating', zh: '评分' },
   ratings: { en: 'Ratings', zh: '评分数' },
 };
+
+type PaletteKey = 'background' | 'foreground' | 'title' | 'grid';
+const PALETTE: Record<'light' | 'dark', Record<PaletteKey, string>> = {
+  light: { background: '#f5f8fb', foreground: '#506579', title: '#17324d', grid: '#dce5ed' },
+  dark: { background: '#18232f', foreground: '#d5e2ed', title: '#dcebf7', grid: '#344453' },
+};
+/** Both themes ship in one document, so the cached SVG follows the reader's colour preference. */
+const AUTO_STYLE = `<style>svg{--chart-background:${PALETTE.light.background};--chart-foreground:${PALETTE.light.foreground};--chart-title:${PALETTE.light.title};--chart-grid:${PALETTE.light.grid}}.chart-background{fill:var(--chart-background)}.chart-foreground{fill:var(--chart-foreground)}.chart-title{fill:var(--chart-title)}.chart-grid{stroke:var(--chart-grid)}.chart-ring{stroke:var(--chart-background)}@media (prefers-color-scheme:dark){svg{--chart-background:${PALETTE.dark.background};--chart-foreground:${PALETTE.dark.foreground};--chart-title:${PALETTE.dark.title};--chart-grid:${PALETTE.dark.grid}}}</style>`;
 
 const escapeXml = (value: unknown): string => String(value)
   .replaceAll('&', '&amp;')
@@ -147,7 +155,6 @@ export function renderErrorChart(message: string, hint: string, kind = 'error'):
 export function renderChart(points: ChartPoint[], options: ChartOptions): string {
   const width = Math.max(1, Number.isFinite(options.width) ? options.width : 800);
   const height = Math.max(1, Number.isFinite(options.height) ? options.height : 400);
-  const dark = options.theme === 'dark';
   const lang = options.lang;
   const metrics = [...new Set(options.metrics)].filter((metric): metric is Metric => metric in COLORS);
   const field: Record<Metric, keyof ChartPoint> = { downloads: 'd', rating: 'a', ratings: 'c' };
@@ -202,15 +209,16 @@ export function renderChart(points: ChartPoint[], options: ChartOptions): string
     const scale = scales[metric]!;
     return titleSpace + (scale.max - value) / (scale.max - scale.min) * plotHeight;
   };
-  const background = dark ? '#18232f' : '#f5f8fb';
-  const foreground = dark ? '#d5e2ed' : '#506579';
-  const titleColor = dark ? '#dcebf7' : '#17324d';
-  const gridColor = dark ? '#344453' : '#dce5ed';
+  const auto = options.theme === 'auto';
+  const palette = options.theme === 'dark' ? PALETTE.dark : PALETTE.light;
+  const paint = (name: PaletteKey, kind: 'fill' | 'stroke', cls = `chart-${name}`): string =>
+    auto ? `class="${cls}" ${kind}="${PALETTE.light[name]}"` : `${kind}="${palette[name]}"`;
   const svg: string[] = [
     `<svg xmlns="http://www.w3.org/2000/svg" width="${num(width)}" height="${num(height)}" viewBox="0 0 ${num(width)} ${num(height)}" role="img" aria-labelledby="chart-title chart-desc" font-family="${FONT}">`,
     `<title id="chart-title">${escapeXml(options.repo)}</title>`,
     `<desc id="chart-desc">${escapeXml(lang === 'zh' ? '仓库指标时间折线图' : 'Repository metrics over time')}</desc>`,
-    `<rect width="100%" height="100%" rx="8" fill="${background}"/>`,
+    ...(auto ? [AUTO_STYLE] : []),
+    `<rect width="100%" height="100%" rx="8" ${paint('background', 'fill')}/>`,
   ];
 
   if (options.title) {
@@ -218,7 +226,7 @@ export function renderChart(points: ChartPoint[], options: ChartOptions): string
     const room = width - left - 14;
     const full = `${options.repo}${suffix}`;
     const title = fitText(full, room, 15) === full ? full : fitText(options.repo, room, 15);
-    svg.push(`<text x="${num(left)}" y="23" fill="${titleColor}" font-size="15" font-weight="600">${escapeXml(title)}</text>`);
+    svg.push(`<text x="${num(left)}" y="23" ${paint('title', 'fill')} font-size="15" font-weight="600">${escapeXml(title)}</text>`);
   }
 
   const gridMetric = metrics.includes('downloads') ? 'downloads' : metrics[0];
@@ -226,14 +234,14 @@ export function renderChart(points: ChartPoint[], options: ChartOptions): string
     for (const tick of scales[gridMetric]!.ticks) {
       const yy = y(gridMetric, tick);
       if (options.grid) {
-        svg.push(`<line x1="${num(left)}" y1="${num(yy)}" x2="${num(width - right)}" y2="${num(yy)}" stroke="${gridColor}" stroke-width="1"/>`);
+        svg.push(`<line x1="${num(left)}" y1="${num(yy)}" x2="${num(width - right)}" y2="${num(yy)}" ${paint('grid', 'stroke')} stroke-width="1"/>`);
       }
     }
   }
 
   if (metrics.includes('downloads')) {
     for (const tick of scales.downloads!.ticks) {
-      svg.push(`<text x="${num(left - 7)}" y="${num(y('downloads', tick) + 3)}" text-anchor="end" fill="${foreground}" font-size="10">${formatValue(tick)}</text>`);
+      svg.push(`<text x="${num(left - 7)}" y="${num(y('downloads', tick) + 3)}" text-anchor="end" ${paint('foreground', 'fill')} font-size="10">${formatValue(tick)}</text>`);
     }
   }
   const rightMetrics = metrics.filter((metric) => metric !== 'downloads');
@@ -247,11 +255,11 @@ export function renderChart(points: ChartPoint[], options: ChartOptions): string
       const label = railMetric === 'rating'
         ? `${formatValue(tick)}${paired === undefined ? '' : ` / ${formatValue(paired)}`}`
         : formatValue(tick);
-      svg.push(`<text x="${num(width - right + 7)}" y="${num(y(railMetric, tick) + 3)}" fill="${foreground}" font-size="10">${label}</text>`);
+      svg.push(`<text x="${num(width - right + 7)}" y="${num(y(railMetric, tick) + 3)}" ${paint('foreground', 'fill')} font-size="10">${label}</text>`);
     }
   }
 
-  svg.push(`<line x1="${num(left)}" y1="${num(titleSpace + plotHeight)}" x2="${num(width - right)}" y2="${num(titleSpace + plotHeight)}" stroke="${gridColor}"/>`);
+  svg.push(`<line x1="${num(left)}" y1="${num(titleSpace + plotHeight)}" x2="${num(width - right)}" y2="${num(titleSpace + plotHeight)}" ${paint('grid', 'stroke')}/>`);
   if (hasTime) {
     const tickCount = maxTime === minTime ? 1 : Math.max(2, Math.min(width >= 640 ? 6 : width >= 440 ? 5 : 4, Math.floor(plotWidth / 88) + 1));
     const labels = new Set<string>();
@@ -262,7 +270,7 @@ export function renderChart(points: ChartPoint[], options: ChartOptions): string
       labels.add(label);
       const anchor = i === 0 ? 'start' : i === tickCount - 1 ? 'end' : 'middle';
       const xx = i === 0 ? left : i === tickCount - 1 ? width - right : x(timestamp);
-      svg.push(`<text x="${num(xx)}" y="${num(titleSpace + plotHeight + 17)}" text-anchor="${anchor}" fill="${foreground}" font-size="10">${label}</text>`);
+      svg.push(`<text x="${num(xx)}" y="${num(titleSpace + plotHeight + 17)}" text-anchor="${anchor}" ${paint('foreground', 'fill')} font-size="10">${label}</text>`);
     }
   }
 
@@ -283,19 +291,19 @@ export function renderChart(points: ChartPoint[], options: ChartOptions): string
       }
     }
     const last = segments.at(-1)?.points.at(-1);
-    if (last) svg.push(`<circle data-endpoint="${metric}" cx="${num(x(last.t))}" cy="${num(y(metric, last.value))}" r="3.5" fill="${color}" stroke="${background}" stroke-width="1.5"/>`);
+    if (last) svg.push(`<circle data-endpoint="${metric}" cx="${num(x(last.t))}" cy="${num(y(metric, last.value))}" r="3.5" fill="${color}" ${paint('background', 'stroke', 'chart-ring')} stroke-width="1.5"/>`);
   }
 
   if (!all.length) {
     const message = lang === 'zh' ? '暂无所选指标数据' : 'No data for the selected metrics';
-    svg.push(`<text x="${num(left + plotWidth / 2)}" y="${num(titleSpace + plotHeight / 2)}" text-anchor="middle" fill="${foreground}" font-size="12">${message}</text>`);
+    svg.push(`<text x="${num(left + plotWidth / 2)}" y="${num(titleSpace + plotHeight / 2)}" text-anchor="middle" ${paint('foreground', 'fill')} font-size="12">${message}</text>`);
   }
   for (let row = 0; row < legend.length; row++) {
     let xx = left;
     const yy = height - (legend.length - row - 1) * 13 - 6;
     for (const { metric, label } of legend[row]) {
       svg.push(`<line data-legend="${metric}" x1="${num(xx)}" y1="${num(yy - 3)}" x2="${num(xx + 12)}" y2="${num(yy - 3)}" stroke="${COLORS[metric]}" stroke-width="2"/>`);
-      svg.push(`<text x="${num(xx + 17)}" y="${num(yy)}" fill="${foreground}" font-size="10">${escapeXml(fitText(label, width - xx - 22, 10))}</text>`);
+      svg.push(`<text x="${num(xx + 17)}" y="${num(yy)}" ${paint('foreground', 'fill')} font-size="10">${escapeXml(fitText(label, width - xx - 22, 10))}</text>`);
       xx += label.length * 6 + 23;
     }
   }

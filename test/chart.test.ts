@@ -32,6 +32,21 @@ describe('renderChart', () => {
     expect(svg).toContain("-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif");
   });
 
+  it('ships both themes in one document when the theme is automatic', () => {
+    const svg = renderChart([{ t: time(1), d: 1 }, { t: time(2), d: 2 }], options({ theme: 'auto' }));
+    expect(svg).toContain('@media (prefers-color-scheme:dark)');
+    expect(svg).toContain(`--chart-background:${'#f5f8fb'}`);
+    expect(svg).toContain(`--chart-background:${'#18232f'}`);
+    expect(svg).toContain('class="chart-foreground" fill="#506579"');
+    expect(svg).toContain('class="chart-ring" stroke="#f5f8fb"');
+    for (const theme of ['light', 'dark'] as const) {
+      const fixed = renderChart([{ t: time(1), d: 1 }], options({ theme }));
+      expect(fixed).not.toContain('<style>');
+      expect(fixed).not.toContain('prefers-color-scheme');
+      expect(fixed).not.toContain('class="chart-');
+    }
+  });
+
   it('uses the correct metric fields and colors', () => {
     const svg = renderChart([
       { t: time(1), d: 10, a: 3.5, c: 4 },

@@ -31,7 +31,7 @@ The response is always a self-contained `image/svg+xml` document, including inpu
 | `metrics` | Comma-separated `downloads`, `rating`, `ratings` | `downloads` |
 | `range` | `30d`, `90d`, `1y`, `all` | `all` |
 | `start`, `end` | UTC dates, `YYYY-MM-DD`; use instead of `range` | — |
-| `theme` | `light`, `dark` | `light` |
+| `theme` | `light`, `dark`, `auto` | `auto` |
 | `width` | Integer from 320 to 1600 | `800` |
 | `height` | Integer from 200 to 1000 | `400` |
 | `title` | `true`, `false` | `true` |
@@ -39,6 +39,8 @@ The response is always a self-contained `image/svg+xml` document, including inpu
 | `grid` | `true`, `false` | `true` |
 | `area` | `true`, `false`; fill below downloads | `false` |
 | `lang` | `en`, `zh` | `en` |
+
+`theme=auto`, the default, ships both palettes in one SVG and follows the reader's system colour preference. GitHub's page theme cannot reach an image, so a dark system with a light GitHub still shows a dark card; set `theme` explicitly for a fixed look.
 
 `rating` is the weighted average from 1 to 5. `ratings` is the number of ratings. Downloads use the left axis; rating metrics use the right. When both rating metrics are selected, paired right-axis labels show average / count. Lines use actual observation timestamps rather than assuming evenly spaced samples. Gaps in rating history are not connected. A range beginning after the first observation carries the last known value to the start boundary, which correctly represents cumulative metrics.
 
