@@ -1190,10 +1190,10 @@ input[aria-invalid="true"] {
 /* Footer credits. */
 .footer {
 	display: flex;
-	align-items: flex-start;
+	align-items: baseline;
 	justify-content: space-between;
 	flex-wrap: wrap;
-	gap: 12px 28px;
+	gap: 6px 28px;
 	margin-top: clamp(54px, 7vw, 82px);
 	padding: 20px 0 34px;
 	border-top: 1px solid var(--line-strong);
@@ -1211,16 +1211,20 @@ input[aria-invalid="true"] {
 	text-underline-offset: 3px;
 }
 
-.footer-meta {
-	display: grid;
-	gap: 2px;
+/* The data-source and repository links stay on one line at every width, so they
+   form a single nowrap row; only the note above them is allowed to wrap. */
+.footer-links {
+	display: flex;
+	flex-wrap: nowrap;
+	align-items: baseline;
+	gap: 18px;
+	margin-left: auto;
 }
 
 .footer-repo {
 	display: inline-flex;
 	align-items: center;
 	gap: 7px;
-	margin-left: auto;
 	text-decoration: none;
 }
 
@@ -1234,6 +1238,15 @@ input[aria-invalid="true"] {
 	height: 14px;
 	flex: none;
 	fill: currentColor;
+}
+
+/* Once the note needs its own line the links start at the left edge, so neither
+   link ends up flush against the right margin. */
+@media (max-width: 960px) {
+	.footer-links {
+		gap: 8px;
+		margin-left: 0;
+	}
 }
 
 .noscript {
@@ -1385,8 +1398,15 @@ input[aria-invalid="true"] {
 	}
 
 	.footer {
-		flex-direction: column;
 		align-items: flex-start;
+	}
+}
+
+/* Below 360px the single row no longer fits, so the two links wrap rather than
+   overflow the page margin. */
+@media (max-width: 339px) {
+	.footer-links {
+		flex-wrap: wrap;
 	}
 }
 
