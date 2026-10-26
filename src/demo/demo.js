@@ -22,7 +22,7 @@
 			'hero.title1': 'Package history,',
 			'hero.title2': 'ready to embed.',
 			'hero.lede': 'Turn any SiYuan bazaar package into a live trend chart. Choose the metrics, range, and finish, then copy the code into your README.',
-			'hero.note': 'No API key. No runtime scripts. One self-contained SVG.',
+			'hero.note': 'Every chart is one static SVG you can paste straight into a README, with no scripts or keys.',
 			'builder.title': 'Build the chart',
 			'builder.note': 'The sample parameters are a good starting point.',
 			'field.repo': 'Repository',
@@ -75,8 +75,8 @@
 			'preview.error': 'The chart could not be loaded.',
 			'preview.caption': "The preview and snippets use this site's chart endpoint.",
 			'embed.title': 'Embed code',
-			'embed.note': 'Copy the chart URL or use a snippet. Language follows your choice in the builder.',
-			'snippet.url': 'Chart URL',
+			'embed.note': 'Copy the chart URL or use a snippet. Chart style follows your choice in the builder.',
+			'snippet.url': 'Link',
 			'snippet.html': 'HTML',
 			'snippet.markdown': 'Markdown',
 			'action.copied': 'Copied',
@@ -84,7 +84,7 @@
 			'alt.chart': 'SiYuan bazaar package trends for {repo}',
 			'footer.note': "Charts are cached for 30 minutes and refresh behind GitHub's image proxy.",
 			'footer.data': 'Data from',
-			'footer.source': 'Source code',
+			'footer.source': 'GitHub repository',
 		},
 		zh: {
 			'meta.title': 'Bazaar Graph — 思源集市包图表生成器',
@@ -105,7 +105,7 @@
 			'hero.title1': '把集市包的历史，',
 			'hero.title2': '做成可嵌入的图。',
 			'hero.lede': '为任意思源集市包生成实时趋势图。选择指标、时间范围和样式，再把代码复制到 README。',
-			'hero.note': '无需 API Key，只要一份自包含的 SVG。',
+			'hero.note': '每张图就是一份静态 SVG，粘进 README 即可显示，无需脚本或密钥。',
 			'builder.title': '生成图表',
 			'builder.note': '默认参数是一个不错的起点。',
 			'field.repo': '仓库',
@@ -158,8 +158,8 @@
 			'preview.error': '图表加载失败。',
 			'preview.caption': '预览与代码使用本站的图表接口。',
 			'embed.title': '嵌入代码',
-			'embed.note': '可以直接复制图表链接，或使用下方片段。图表语言跟随上方的设置。',
-			'snippet.url': '图表链接',
+			'embed.note': '可以直接复制图表链接，或使用下方片段。图表样式跟随上方的设置。',
+			'snippet.url': 'Link',
 			'snippet.html': 'HTML',
 			'snippet.markdown': 'Markdown',
 			'action.copied': '已复制',
@@ -167,7 +167,7 @@
 			'alt.chart': '{repo} 的思源集市包趋势',
 			'footer.note': '图表缓存 30 分钟，并通过 GitHub 图片代理自动刷新。',
 			'footer.data': '数据来自',
-			'footer.source': '源码',
+			'footer.source': 'GitHub 仓库',
 		},
 	};
 
@@ -369,10 +369,10 @@
 			for (const button of copyButtons) button.disabled = true;
 			return;
 		}
-		const htmlUrl = escapeHtml(url);
-		const htmlAlt = escapeHtml(alt);
 		codeElements.url.textContent = url;
-		codeElements.html.innerHTML = highlightHtml(`<img\n  src="${htmlUrl}"\n  alt="${htmlAlt}"\n  width="${width}"\n  height="${height}"\n>`);
+		// Raw values: paintTokens() escapes every non-token slice exactly once, so an
+		// ampersand in the query string stays a single "&" in the copied snippet.
+		codeElements.html.innerHTML = highlightHtml(`<img\n  src="${url}"\n  alt="${alt}"\n  width="${width}"\n  height="${height}"\n>`);
 		codeElements.markdown.innerHTML = highlightMarkdown(`![${alt}](${url})`);
 		for (const button of copyButtons) button.disabled = false;
 	}
