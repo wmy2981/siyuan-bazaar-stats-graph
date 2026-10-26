@@ -1189,11 +1189,8 @@ input[aria-invalid="true"] {
 
 /* Footer credits. */
 .footer {
-	display: flex;
-	align-items: flex-start;
-	justify-content: space-between;
-	flex-wrap: wrap;
-	gap: 12px 28px;
+	display: grid;
+	gap: 3px;
 	margin-top: clamp(54px, 7vw, 82px);
 	padding: 20px 0 34px;
 	border-top: 1px solid var(--line-strong);
@@ -1211,16 +1208,18 @@ input[aria-invalid="true"] {
 	text-underline-offset: 3px;
 }
 
-.footer-meta {
-	display: grid;
-	gap: 2px;
+/* Data source at the left edge, repository link at the right edge, on one line at
+   every width. Both sides stay plain inline text so the two baselines coincide. */
+.footer-row {
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+	gap: 10px;
+	flex-wrap: nowrap;
+	white-space: nowrap;
 }
 
 .footer-repo {
-	display: inline-flex;
-	align-items: center;
-	gap: 7px;
-	margin-left: auto;
 	text-decoration: none;
 }
 
@@ -1232,8 +1231,27 @@ input[aria-invalid="true"] {
 .footer-icon {
 	width: 14px;
 	height: 14px;
-	flex: none;
+	vertical-align: -3px;
 	fill: currentColor;
+}
+
+/* Phones: both labels shrink a little so the single row still fits 360px. */
+@media (max-width: 400px) {
+	.footer {
+		font-size: 11px;
+	}
+
+	.footer-row {
+		gap: 6px;
+	}
+}
+
+/* Below 360px the row cannot fit readable text on one line, so the two labels
+   stack instead of overflowing the page margin. */
+@media (max-width: 339px) {
+	.footer-row {
+		flex-wrap: wrap;
+	}
 }
 
 .noscript {
@@ -1384,10 +1402,6 @@ input[aria-invalid="true"] {
 		font-size: 12px;
 	}
 
-	.footer {
-		flex-direction: column;
-		align-items: flex-start;
-	}
 }
 
 @media (max-width: 440px) {
