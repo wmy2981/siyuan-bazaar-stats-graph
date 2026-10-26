@@ -257,6 +257,8 @@ function renderChartDocument(points: ChartPoint[], options: ChartOptions, lang: 
   const width = Math.max(1, Number.isFinite(options.width) ? options.width : 800);
   const height = Math.max(1, Number.isFinite(options.height) ? options.height : 400);
   const metrics = [...new Set(options.metrics)].filter((metric): metric is Metric => metric in COLORS);
+  /** Rating and ratings share the right axis, so the count line is dashed to stay readable where they coincide. */
+  const dashRatings = metrics.includes('rating') && metrics.includes('ratings');
   /** Upstream short keys used in the history payload. */
   const field: Record<Metric, keyof ChartPoint> = { downloads: 'd', rating: 'a', ratings: 'c' };
   /** Split each metric at gaps so missing samples are never interpolated. */
@@ -398,7 +400,10 @@ function renderChartDocument(points: ChartPoint[], options: ChartOptions, lang: 
         const point = segment[0];
         svg.push(`<circle cx="${num(x(point.t))}" cy="${num(y(metric, point.value))}" r="2.5" fill="${color}"/>`);
       } else if (segment.length > 1) {
-        svg.push(`<polyline data-metric="${metric}" data-start="${start}" points="${coordinates}" fill="none" stroke="${color}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>`);
+        // Round caps would extend each dash by half a stroke width and swallow the
+      // gap, so the dashed count line uses butt caps and a wider pattern.
+      const dashed = dashRatings && metric === 'ratings';
+      svg.push(`<polyline data-metric="${metric}" data-start="${start}" points="${coordinates}" fill="none" stroke="${color}" stroke-width="2"${dashed ? ' stroke-dasharray="12 9"' : ''} stroke-linejoin="round" stroke-linecap="${dashed ? 'butt' : 'round'}"/>`);
       }
     }
     const last = segments.at(-1)?.points.at(-1);
@@ -415,7 +420,7 @@ function renderChartDocument(points: ChartPoint[], options: ChartOptions, lang: 
     for (const { metric, label, width: labelWidth } of legend[row]) {
       const textX = xx + LEGEND_TEXT_OFFSET;
       const available = Math.max(1, width - right - textX - 2);
-      svg.push(`<line data-legend="${metric}" x1="${num(xx)}" y1="${num(yy - 3)}" x2="${num(xx + LEGEND_LINE_WIDTH)}" y2="${num(yy - 3)}" stroke="${COLORS[metric]}" stroke-width="2"/>`);
+      svg.push(`<line data-legend="${metric}" x1="${num(xx)}" y1="${num(yy - 3)}" x2="${num(xx + LEGEND_LINE_WIDTH)}" y2="${num(yy - 3)}" stroke="${COLORS[metric]}" stroke-width="2"${dashRatings && metric === 'ratings' ? ' stroke-dasharray="4 3"' : ''}/>`);
       svg.push(`<text x="${num(textX)}" y="${num(yy)}" ${paint('foreground', 'fill')} font-size="10">${escapeXml(fitText(label, available, 10))}</text>`);
       xx += LEGEND_TEXT_OFFSET + labelWidth + LEGEND_ITEM_GAP;
     }
