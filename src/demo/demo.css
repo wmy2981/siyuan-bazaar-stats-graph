@@ -1189,11 +1189,8 @@ input[aria-invalid="true"] {
 
 /* Footer credits. */
 .footer {
-	display: flex;
-	align-items: baseline;
-	justify-content: space-between;
-	flex-wrap: wrap;
-	gap: 6px 28px;
+	display: grid;
+	gap: 3px;
 	margin-top: clamp(54px, 7vw, 82px);
 	padding: 20px 0 34px;
 	border-top: 1px solid var(--line-strong);
@@ -1211,20 +1208,18 @@ input[aria-invalid="true"] {
 	text-underline-offset: 3px;
 }
 
-/* The data-source and repository links stay on one line at every width, so they
-   form a single nowrap row; only the note above them is allowed to wrap. */
-.footer-links {
+/* Data source at the left edge, repository link at the right edge, on one line at
+   every width. Both sides stay plain inline text so the two baselines coincide. */
+.footer-row {
 	display: flex;
-	flex-wrap: nowrap;
 	align-items: baseline;
-	gap: 18px;
-	margin-left: auto;
+	justify-content: space-between;
+	gap: 10px;
+	flex-wrap: nowrap;
+	white-space: nowrap;
 }
 
 .footer-repo {
-	display: inline-flex;
-	align-items: center;
-	gap: 7px;
 	text-decoration: none;
 }
 
@@ -1236,16 +1231,26 @@ input[aria-invalid="true"] {
 .footer-icon {
 	width: 14px;
 	height: 14px;
-	flex: none;
+	vertical-align: -3px;
 	fill: currentColor;
 }
 
-/* Once the note needs its own line the links start at the left edge, so neither
-   link ends up flush against the right margin. */
-@media (max-width: 960px) {
-	.footer-links {
-		gap: 8px;
-		margin-left: 0;
+/* Phones: both labels shrink a little so the single row still fits 360px. */
+@media (max-width: 400px) {
+	.footer {
+		font-size: 11px;
+	}
+
+	.footer-row {
+		gap: 6px;
+	}
+}
+
+/* Below 360px the row cannot fit readable text on one line, so the two labels
+   stack instead of overflowing the page margin. */
+@media (max-width: 339px) {
+	.footer-row {
+		flex-wrap: wrap;
 	}
 }
 
@@ -1397,17 +1402,6 @@ input[aria-invalid="true"] {
 		font-size: 12px;
 	}
 
-	.footer {
-		align-items: flex-start;
-	}
-}
-
-/* Below 360px the single row no longer fits, so the two links wrap rather than
-   overflow the page margin. */
-@media (max-width: 339px) {
-	.footer-links {
-		flex-wrap: wrap;
-	}
 }
 
 @media (max-width: 440px) {
