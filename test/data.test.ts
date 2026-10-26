@@ -21,6 +21,15 @@ describe('package data', () => {
     expect(result.history).toEqual([{ t: 100_000, d: 20, a: 3, c: 2 }])
     expect(vi.mocked(fetch).mock.calls[0]?.[1]).toMatchObject({ cf: { cacheEverything: false, cacheTtl: 0 } })
   })
+  it('falls back to the primary host when the mirror is down', async () => {
+    mockFetch({
+      'https://github.mytemos.com/siyuan-bazaar-stats/data/summary.json': () => new Response('unavailable', { status: 503 }),
+      'https://siyuan-bazaar-stats.mytemos.com/data/summary.json': () => Response.json(summary),
+      'https://github.mytemos.com/siyuan-bazaar-stats/data/packages/sample.json': () => new Response('not found', { status: 404 }),
+      'https://siyuan-bazaar-stats.mytemos.com/data/packages/sample.json': () => Response.json(detail),
+    })
+    expect(await loadPackage('owner/repo')).toEqual({ name: 'sample', displayName: 'sample', history: [{ t: 100_000, d: 20, a: 3, c: 2 }] })
+  })
   it('converts upstream Unix seconds to SVG milliseconds', async () => {
     mockFetch({
       'https://github.mytemos.com/siyuan-bazaar-stats/data/summary.json': () => Response.json(summary),
@@ -50,6 +59,63 @@ describe('package data', () => {
     const result = await loadPackage('owner/repo')
     expect(result.history).toEqual([{ t: 1000, d: 10, a: 4, c: 1 }, { t: 2000, d: 12, a: 4, c: 1 }])
     expect(result.stale).toBe(true)
+  })
+  it('ignores a detail document for another package and replays snapshots', async () => {
+    const lines = JSON.stringify({ t: 1, full: true, p: { sample: { d: 10 } } })
+    mockFetch({
+      'https://github.mytemos.com/siyuan-bazaar-stats/data/summary.json': () => Response.json(summary),
+      'https://github.mytemos.com/siyuan-bazaar-stats/data/packages/sample.json': () => Response.json({ ...detail, name: 'other' }),
+      'https://raw.githubusercontent.com/TCOTC/siyuan-bazaar-stats/main/data/snapshots/2026-10.jsonl': () => new Response(lines),
+    })
+    expect(await loadPackage('owner/repo')).toEqual({ name: 'sample', displayName: 'sample', history: [{ t: 1000, d: 10 }], stale: true })
+  })
+  it('ignores a detail document without usable history and replays snapshots', async () => {
+    const lines = JSON.stringify({ t: 1, full: true, p: { sample: { d: 10 } } })
+    mockFetch({
+      'https://github.mytemos.com/siyuan-bazaar-stats/data/summary.json': () => Response.json(summary),
+      'https://github.mytemos.com/siyuan-bazaar-stats/data/packages/sample.json': () => Response.json({ ...detail, history: [] }),
+      'https://raw.githubusercontent.com/TCOTC/siyuan-bazaar-stats/main/data/snapshots/2026-10.jsonl': () => new Response(lines),
+    })
+    expect(await loadPackage('owner/repo')).toEqual({ name: 'sample', displayName: 'sample', history: [{ t: 1000, d: 10 }], stale: true })
+  })
+  it('ignores rating fields a snapshot must never carry', async () => {
+    const lines = [
+      JSON.stringify({ t: 1, full: true, p: { sample: { d: 10 } } }),
+      JSON.stringify({ t: 2, p: { sample: { d: 12, a: 3, c: 2 } } }),
+      JSON.stringify({ t: 3, p: { sample: { d: 14, x: [1, 0, 0, 0, 0] } } }),
+    ].join('\n')
+    mockFetch({
+      'https://github.mytemos.com/siyuan-bazaar-stats/data/summary.json': () => Response.json(summary),
+      'https://github.mytemos.com/siyuan-bazaar-stats/data/packages/sample.json': () => new Response('unavailable', { status: 503 }),
+      'https://raw.githubusercontent.com/TCOTC/siyuan-bazaar-stats/main/data/snapshots/2026-10.jsonl': () => new Response(lines),
+    })
+    const result = await loadPackage('owner/repo')
+    expect(result.history).toEqual([{ t: 1000, d: 10 }, { t: 2000, d: 12 }, { t: 3000, d: 14, a: 1, c: 1 }])
+  })
+  it('encodes package names that contain spaces or plus signs', async () => {
+    mockFetch({
+      'https://github.mytemos.com/siyuan-bazaar-stats/data/summary.json': () => Response.json({ packages: [{ name: 'Dark+', repo: 'owner/dark' }] }),
+      'https://github.mytemos.com/siyuan-bazaar-stats/data/packages/Dark%2B.json': () => Response.json({ ...detail, name: 'Dark+' }),
+    })
+    expect((await loadPackage('owner/dark')).history[0]?.d).toBe(20)
+  })
+  it('refuses an artifact written for another schema instead of replaying snapshots', async () => {
+    mockFetch({
+      'https://github.mytemos.com/siyuan-bazaar-stats/data/summary.json': () => Response.json(summary),
+      'https://github.mytemos.com/siyuan-bazaar-stats/data/packages/sample.json': () => Response.json({ ...detail, schema: 2 }),
+      'https://raw.githubusercontent.com/TCOTC/siyuan-bazaar-stats/main/data/snapshots/2026-10.jsonl': () => new Response(''),
+    })
+    const error = await loadPackage('owner/repo').catch(cause => cause as ChartError)
+    expect(error.code).toBe('unsupportedSchema')
+    expect(error.values).toEqual({ schema: '2', supported: '1' })
+    expect(localizeError(error.code, error.values, 'zh').hint).toContain('2')
+  })
+  it('accepts artifacts that predate the schema field', async () => {
+    mockFetch({
+      'https://github.mytemos.com/siyuan-bazaar-stats/data/summary.json': () => Response.json(summary),
+      'https://github.mytemos.com/siyuan-bazaar-stats/data/packages/sample.json': () => Response.json(detail),
+    })
+    expect((await loadPackage('owner/repo')).stale).toBeUndefined()
   })
   it('returns a useful error for an unknown repository', async () => {
     mockFetch({

@@ -23,6 +23,13 @@ const PACKAGE_MIRROR_URL = 'https://github.mytemos.com/siyuan-bazaar-stats/data/
 const RAW_URL = 'https://raw.githubusercontent.com/TCOTC/siyuan-bazaar-stats/main/data/snapshots'
 /** Refuse oversized monthly snapshots instead of buffering them inside a Worker. */
 const MAX_SNAPSHOT_BYTES = 24 * 1024 * 1024
+/**
+ * Format version of the upstream `/data/` artifacts, which carry it as `schema`.
+ * Upstream freezes the field names and entry URLs but bumps this number when the
+ * shape changes (docs/data-contract.md), so a different value must be refused
+ * rather than read as if the fields still meant the same thing.
+ */
+const DATA_SCHEMA = 1
 
 /**
  * Upstream record shapes. The collector abbreviates every metric key to keep the
@@ -31,7 +38,8 @@ const MAX_SNAPSHOT_BYTES = 24 * 1024 * 1024
  */
 interface Stats { d?: number; a?: number; c?: number; x?: number[] }
 interface Snapshot { t: number; full?: boolean; p: Record<string, Stats> }
-interface PackageDetail { name: string; repo: string; displayName?: string; current: Stats; history: ChartPoint[] }
+interface Summary { schema?: number; packages?: { name: string; repo?: string }[] }
+interface PackageDetail { schema?: number; name: string; repo: string; displayName?: string; current: Stats; history: ChartPoint[] }
 
 /** Error carrying a localisable code, its substitutions and the status to log. */
 export class ChartError extends Error {
@@ -66,6 +74,17 @@ async function json<T>(url: string): Promise<T> {
   catch { throw new ChartError('dataSourceInvalid', {}, 502) }
 }
 
+/**
+ * Refuse artifacts written for another schema.
+ *
+ * A missing value is accepted: the GitHub Pages mirror can lag behind the primary
+ * host, and artifacts published before the field existed are still schema 1.
+ */
+function assertSchema(value: { schema?: unknown }): void {
+  const schema = value.schema === undefined ? DATA_SCHEMA : value.schema
+  if (schema !== DATA_SCHEMA) throw new ChartError('unsupportedSchema', { schema: String(schema), supported: String(DATA_SCHEMA) }, 502)
+}
+
 /** Normalise a GitHub URL or slug into a lowercase owner/repo pair. */
 const repoNames = (repo: unknown): string[] => {
   if (typeof repo !== 'string') return []
@@ -87,8 +106,9 @@ const repoNames = (repo: unknown): string[] => {
  */
 async function resolvePackage(repo: string): Promise<string> {
   const wanted = repo.toLowerCase()
-  let summary: { packages?: { name: string; repo?: string }[] }
+  let summary: Summary
   try { summary = await json(SUMMARY_MIRROR_URL) } catch { summary = await json(SUMMARY_URL) }
+  assertSchema(summary)
   const found = summary.packages?.find(item => repoNames(item.repo).includes(wanted))
   if (found) return found.name
   try {
@@ -134,23 +154,34 @@ function point(t: number, stats: Stats): ChartPoint | undefined {
 }
 
 /**
+ * Per-package detail from the mirror, then the primary host; undefined when both
+ * fail so the caller can replay snapshots instead.
+ */
+async function loadDetail(name: string): Promise<PackageDetail | undefined> {
+  const file = `${encodeURIComponent(name)}.json`
+  try { return await json<PackageDetail>(`${PACKAGE_MIRROR_URL}${file}`) } catch {
+    try { return await json<PackageDetail>(`${PACKAGE_URL}${file}`) } catch { return undefined }
+  }
+}
+
+/**
  * Preferred path: the generated per-package history for the resolved name.
  *
  * Falls back to raw snapshots when that document is missing or malformed, and
- * flags the result as stale so the SVG can advertise the degraded source.
+ * flags the result as stale so the SVG can advertise the degraded source. A
+ * schema bump is checked outside that fallback: it is a contract change, not an
+ * outage, so fields of unverified meaning must not be rendered from snapshots
+ * instead.
  */
 export async function loadPackage(repo: string): Promise<PackageHistory> {
   const name = await resolvePackage(repo)
-  try {
-    let detail: PackageDetail
-    try { detail = await json(`${PACKAGE_MIRROR_URL}${encodeURIComponent(name)}.json`) }
-    catch { detail = await json(`${PACKAGE_URL}${encodeURIComponent(name)}.json`) }
+  const detail = await loadDetail(name)
+  if (detail) {
+    assertSchema(detail)
     if (detail.name === name && Array.isArray(detail.history)) {
       const history = detail.history.map(p => point(p.t, p)).filter((p): p is ChartPoint => !!p)
       if (history.length) return { name, displayName: detail.displayName || name, history }
     }
-  } catch {
-    // The public raw snapshots are the fallback when the generated site is unavailable.
   }
   return { name, displayName: name, history: await loadSnapshots(name), stale: true }
 }
@@ -189,7 +220,9 @@ async function loadSnapshots(name: string): Promise<ChartPoint[]> {
     if (snapshot.full) current = undefined
     const stats = snapshot.p[name]
     if (stats) {
-      const next = point(snapshot.t, { ...current, ...stats, ...(stats.x ? {} : { a: current?.a, c: current?.c }) })
+      // Snapshots never carry `a` / `c`: upstream derives both from `x`, so only a
+      // histogram is authoritative in a snapshot row and any `a` / `c` is invalid.
+      const next = point(snapshot.t, { d: stats.d ?? current?.d, ...(stats.x ? { x: stats.x } : { a: current?.a, c: current?.c }) })
       if (next) { current = next; history.push(next) }
     }
   }
