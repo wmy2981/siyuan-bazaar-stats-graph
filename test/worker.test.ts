@@ -92,6 +92,18 @@ describe('SVG Worker', () => {
     expect(body).toContain('data-metric="downloads"')
     expect(body).toContain('owner/repo · 2026-09-25')
   })
+  it('reports a cache hit in X-Cache', async () => {
+    const stored = new Response('<svg xmlns="http://www.w3.org/2000/svg" width="1" height="1"/>', {
+      headers: { 'content-type': 'image/svg+xml; charset=utf-8', 'x-chart-status': 'ok', 'x-cache': 'MISS' },
+    })
+    vi.mocked(caches.default.match).mockResolvedValueOnce(stored)
+    const calls = vi.mocked(fetch).mock.calls.length
+    const response = await worker.fetch(new Request('https://charts.test/api/chart/owner/repo?metrics=downloads&area=true'))
+    expect(vi.mocked(fetch).mock.calls.length).toBe(calls)
+    expect(response.headers.get('x-cache')).toBe('HIT')
+    expect(response.headers.get('x-chart-status')).toBe('ok')
+    expect(await response.text()).toContain('<svg')
+  })
   it('stores a fallback copy for one day independently of the normal cache', async () => {
     await worker.fetch(new Request('https://charts.test/api/chart/owner/repo'))
     const puts = vi.mocked(caches.default.put).mock.calls.slice(-2)
