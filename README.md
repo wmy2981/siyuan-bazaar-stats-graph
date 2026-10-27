@@ -44,6 +44,7 @@ The response is always a self-contained `image/svg+xml` document, including inpu
 | `legend` | `true`, `false` | `true` |
 | `grid` | `true`, `false` | `true` |
 | `area` | `true`, `false`; fill below downloads | `false` |
+| `updated` | `true`, `false`; show the last-updated time at the bottom right | `true` |
 | `lang` | `en`, `zh`, `auto` | `auto` |
 
 `theme=auto`, the default, ships both palettes in one SVG and follows the reader's system colour preference. GitHub's page theme cannot reach an image, so a dark system with a light GitHub still shows a dark card; set `theme` explicitly for a fixed look.
@@ -67,7 +68,7 @@ The SVG is intentionally static: no scripts, external resources, cookies or runt
 ## Data
 
 - Package repository mapping and current catalog: official SiYuan bazaar indexes.
-- History comes from TCOTC/siyuan-bazaar-stats as upstream package detail JSON, with raw monthly snapshots as fallback. Observations are change-only, collected every 30 minutes at best since August 2026; GitHub scheduling may delay them by hours. Charts show the latest observation date.
+- History comes from TCOTC/siyuan-bazaar-stats as upstream package detail JSON, with raw monthly snapshots as fallback. Observations are change-only, collected every 30 minutes at best since August 2026; GitHub scheduling may delay them by hours. Charts show the upstream data's last update time — the latest observation, in UTC to the second — as a small line at the bottom right (below the legend when the chart is too narrow for the legend row); hide it with `updated=false`. The chart title carries no date.
 - Timestamps are the bazaar's `publishedAt`, not the collection time, so spacing is uneven and a quiet period has no point.
 - Delisted packages leave the upstream artifacts, so their charts report `packageNotFound`.
 - Artifacts carry `schema`; any other value is shown as an error rather than read with possibly changed field meanings. Fields, URLs and snapshot semantics are frozen in the upstream [data contract](https://github.com/TCOTC/siyuan-bazaar-stats/blob/main/docs/data-contract.md).

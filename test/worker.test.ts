@@ -54,7 +54,10 @@ describe('SVG Worker', () => {
     expect(response.headers.get('content-type')).toContain('image/svg+xml')
     expect(response.headers.get('x-chart-status')).toBe('ok')
     expect(response.headers.get('cache-control')).toContain('s-maxage=1800')
-    expect(body).toContain('owner/repo · 2026-09-25')
+    expect(body).not.toContain('owner/repo ·')
+    expect(body).toContain('>owner/repo</text>')
+    expect(body).toContain('Last updated: 2026-09-25 00:00:00 UTC')
+    expect(body).toContain('最后更新：2026-09-25 00:00:00 UTC')
     expect(body).toContain('data-metric="downloads"')
     expect(body).toContain('data-lang="auto"')
     expect(body).toContain('systemLanguage=')
@@ -90,7 +93,20 @@ describe('SVG Worker', () => {
     const body = await response.text()
     expect(response.headers.get('x-chart-status')).toBe('ok')
     expect(body).toContain('data-metric="downloads"')
-    expect(body).toContain('owner/repo · 2026-09-25')
+    expect(body).not.toContain('owner/repo ·')
+    expect(body).toContain('Last updated: 2026-09-25 00:00:00 UTC')
+  })
+  it('reports the full-history last update even for a narrower range, and honors updated=false', async () => {
+    const ranged = await worker.fetch(new Request('https://charts.test/api/chart/owner/repo?metrics=downloads&start=2026-08-01&end=2026-08-31&lang=en'))
+    const rangedBody = await ranged.text()
+    expect(ranged.headers.get('x-chart-status')).toBe('ok')
+    // The rendered range ends 2026-08-26, but the upstream history's newest
+    // observation is 2026-09-25; the line must report the latter.
+    expect(rangedBody).toContain('Last updated: 2026-09-25 00:00:00 UTC')
+    const hidden = await worker.fetch(new Request('https://charts.test/api/chart/owner/repo?metrics=downloads&lang=en&updated=false'))
+    expect(await hidden.text()).not.toContain('Last updated')
+    const invalid = await worker.fetch(new Request('https://charts.test/api/chart/owner/repo?updated=yes'))
+    expect(invalid.headers.get('x-chart-status')).toBe('error')
   })
   it('reports a cache hit in X-Cache', async () => {
     const stored = new Response('<svg xmlns="http://www.w3.org/2000/svg" width="1" height="1"/>', {

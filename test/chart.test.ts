@@ -13,6 +13,7 @@ const options = (overrides: Partial<ChartOptions> = {}): ChartOptions => ({
   legend: true,
   grid: true,
   area: false,
+  updated: true,
   lang: 'en',
   repo: 'owner/project',
   ...overrides,
@@ -137,16 +138,59 @@ describe('renderChart', () => {
     expect(missing).toContain('No data for the selected metrics');
   });
 
-  it('shows the latest UTC date and four to six real time-scale dates', () => {
+  it('shows no date in the title and four to six real time-scale dates', () => {
     const svg = renderChart([
       { t: time(1), d: 1 },
       { t: time(10), d: 2 },
     ], options({ repo: 'x/y' }));
-    expect(svg).toContain('x/y · 2024-01-10');
+    expect(svg).toContain('>x/y</text>');
+    expect(svg).not.toContain('x/y ·');
     const dates = [...svg.matchAll(/font-size="10">(2024-01-\d{2})<\/text>/g)].map((match) => match[1]);
     expect(dates.length).toBe(6);
     expect(dates[0]).toBe('2024-01-01');
     expect(dates.at(-1)).toBe('2024-01-10');
+  });
+
+  it('shows the last updated time to the second by default, in both languages', () => {
+    const points = [{ t: time(1), d: 1 }, { t: Date.UTC(2024, 0, 10, 12, 34, 56), d: 2 }];
+    expect(renderChart(points, options())).toContain('Last updated: 2024-01-10 12:34:56 UTC');
+    expect(renderChart(points, options({ lang: 'zh' }))).toContain('最后更新：2024-01-10 12:34:56 UTC');
+    const auto = renderChart(points, options({ lang: 'auto' }));
+    expect(auto).toContain('Last updated: 2024-01-10 12:34:56 UTC');
+    expect(auto).toContain('最后更新：2024-01-10 12:34:56 UTC');
+  });
+
+  it('hides the last updated time when updated is false', () => {
+    const svg = renderChart([{ t: time(1), d: 1 }, { t: time(2), d: 2 }], options({ updated: false }));
+    expect(svg).not.toContain('Last updated');
+    expect(svg).not.toContain('data-updated');
+  });
+
+  it('prefers the supplied upstream last updated time over the latest rendered point', () => {
+    const svg = renderChart([{ t: time(1), d: 1 }, { t: time(10), d: 2 }], options({
+      lastUpdated: Date.UTC(2024, 0, 15, 1, 2, 3),
+    }));
+    expect(svg).toContain('Last updated: 2024-01-15 01:02:03 UTC');
+    expect(svg).not.toContain('Last updated: 2024-01-10');
+  });
+
+  it('aligns the last updated time with the last legend row when it fits', () => {
+    const svg = renderChart([{ t: time(1), d: 1 }, { t: time(2), d: 2 }], options());
+    const legendY = Number(/<text x="[\d.]+" y="([\d.]+)"[^>]*>Downloads/.exec(svg)?.[1]);
+    const updatedY = Number(/<text data-updated="true" x="[\d.]+" y="([\d.]+)"/.exec(svg)?.[1]);
+    expect(updatedY).toBe(legendY);
+  });
+
+  it('moves the last updated time below the legend when the width is too small', () => {
+    const svg = renderChart([{ t: time(1), d: 1 }, { t: time(2), d: 2 }], options({ width: 320 }));
+    const legendY = Number(/<text x="[\d.]+" y="([\d.]+)"[^>]*>Downloads/.exec(svg)?.[1]);
+    const updatedY = Number(/<text data-updated="true" x="[\d.]+" y="([\d.]+)"/.exec(svg)?.[1]);
+    expect(updatedY).toBeGreaterThan(legendY);
+  });
+
+  it('shows the last updated time without a legend', () => {
+    const svg = renderChart([{ t: time(1), d: 1 }, { t: time(2), d: 2 }], options({ legend: false }));
+    expect(svg).toContain('Last updated: 2024-01-02 00:00:00 UTC');
   });
 
   it('limits every sampled series to 500 points and keeps endpoints and extrema', () => {
@@ -203,7 +247,9 @@ describe('renderChart', () => {
     const baseline = Number(/<line x1="[\d.]+" y1="([\d.]+)"/.exec(svg)?.[1]);
     const firstLegend = Number(/<text x="[\d.]+" y="([\d.]+)"[^>]*>Downloads/.exec(svg)?.[1]);
     expect(baseline).toBeLessThan(firstLegend);
-    expect(200 - baseline).toBeLessThanOrEqual(71);
+    // 71 for the legend rows plus one extra row: at 320 wide the last-updated
+    // line no longer fits beside the legend and drops below it.
+    expect(200 - baseline).toBeLessThanOrEqual(86);
     const dates = [...svg.matchAll(/font-size="10">(2024-[^<]+)<\/text>/g)].map(match => match[1]);
     expect(dates.length).toBeLessThanOrEqual(3);
   });
