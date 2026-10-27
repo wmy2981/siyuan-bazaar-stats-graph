@@ -6,6 +6,11 @@ const detail = { name: 'sample', repo: 'owner/repo', current: { d: 42 }, history
 
 // Stub the Worker-only modules so the entry point can run under Node.
 vi.mock('cloudflare:workers', () => ({ waitUntil: (promise: Promise<unknown>) => promise.catch(() => {}) }))
+// The rasteriser is a heavy seam (wasm plus runtime font downloads), so the
+// Worker contract tests replace it with a stub that returns PNG magic bytes
+// and records the exact SVG document it was handed.
+const { svgToPngMock } = vi.hoisted(() => ({ svgToPngMock: vi.fn() }))
+vi.mock('../src/png', () => ({ svgToPng: svgToPngMock }))
 vi.stubGlobal('caches', { default: { match: vi.fn(async () => undefined), put: vi.fn(async () => undefined) } })
 vi.spyOn(globalThis, 'fetch').mockImplementation(async input => {
   const url = String(input)
@@ -145,6 +150,98 @@ describe('SVG Worker', () => {
     const response = await worker.fetch(new Request('https://charts.test/api/chart/owner/repo', { method: 'POST' }))
     expect(response.headers.get('x-chart-status')).toBe('error')
     expect(await response.text()).toContain('Method not allowed')
+  })
+})
+
+describe('PNG Worker', () => {
+  const PNG_MAGIC = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]
+  const lastSvg = () => svgToPngMock.mock.calls.at(-1)?.[0] as string
+  const lastLang = () => svgToPngMock.mock.calls.at(-1)?.[1] as string
+  beforeEach(() => {
+    vi.mocked(caches.default.match).mockClear()
+    svgToPngMock.mockReset()
+    svgToPngMock.mockImplementation(async () => new Uint8Array([...PNG_MAGIC, 0x49, 0x48, 0x44, 0x52]))
+  })
+  it('returns a PNG with the SVG endpoint cache and status semantics', async () => {
+    const response = await worker.fetch(new Request('https://charts.test/api/png/owner/repo?metrics=downloads,rating,ratings'))
+    expect(response.headers.get('content-type')).toBe('image/png')
+    expect(response.headers.get('x-chart-status')).toBe('ok')
+    expect(response.headers.get('x-cache')).toBe('MISS')
+    expect(response.headers.get('cache-control')).toContain('s-maxage=1800')
+    const body = new Uint8Array(await response.arrayBuffer())
+    expect([...body.slice(0, 8)]).toEqual(PNG_MAGIC)
+  })
+  it('resolves auto language and theme to en/light and renders a transparent chart', async () => {
+    await worker.fetch(new Request('https://charts.test/api/png/owner/repo?metrics=downloads,rating,ratings'))
+    const svg = lastSvg()
+    expect(lastLang()).toBe('en')
+    expect(svg).toContain('data-lang="en"')
+    expect(svg).toContain('data-metric="downloads"')
+    expect(svg).toContain('Downloads (L) 42')
+    expect(svg).not.toContain('<switch>')
+    expect(svg).not.toContain('prefers-color-scheme')
+    // No background card and no background-coloured endpoint ring: the PNG
+    // alpha channel has to carry the transparency on its own.
+    expect(svg).not.toContain('<rect width="100%"')
+    expect(svg).not.toContain('stroke-width="1.5"')
+  })
+  it('honours an explicit zh language and dark theme', async () => {
+    await worker.fetch(new Request('https://charts.test/api/png/owner/repo?lang=zh&theme=dark'))
+    const svg = lastSvg()
+    expect(lastLang()).toBe('zh')
+    expect(svg).toContain('data-lang="zh"')
+    expect(svg).toContain('下载量 (左轴) 42')
+    expect(svg).toContain('#d5e2ed')
+    expect(svg).not.toContain('<rect width="100%"')
+    expect(svg).not.toContain('<switch>')
+  })
+  it('keeps parameter validation and renders its errors as PNG', async () => {
+    const response = await worker.fetch(new Request('https://charts.test/api/png/owner/repo?metrics=nope'))
+    expect(response.headers.get('content-type')).toBe('image/png')
+    expect(response.headers.get('x-chart-status')).toBe('error')
+    expect(response.headers.get('cache-control')).toContain('s-maxage=60')
+    expect([...new Uint8Array(await response.arrayBuffer()).slice(0, 8)]).toEqual(PNG_MAGIC)
+    expect(lastSvg()).toContain('Unknown metric')
+  })
+  it.each(['/api/png/nope', '/api/png/owner/repo?start=2020-01-01&end=2020-01-02'])('renders %s as a PNG error', async path => {
+    const response = await worker.fetch(new Request(`https://charts.test${path}`))
+    expect(response.status).toBe(200)
+    expect(response.headers.get('content-type')).toBe('image/png')
+    expect(response.headers.get('x-chart-status')).toBe('error')
+  })
+  it('renders an unsupported method on a PNG path as a PNG error', async () => {
+    const response = await worker.fetch(new Request('https://charts.test/api/png/owner/repo', { method: 'POST' }))
+    expect(response.headers.get('content-type')).toBe('image/png')
+    expect(response.headers.get('x-chart-status')).toBe('error')
+    expect(lastSvg()).toContain('Method not allowed')
+  })
+  it('reports a cache hit in X-Cache without rasterising again', async () => {
+    const stored = new Response(new Uint8Array(PNG_MAGIC), {
+      headers: { 'content-type': 'image/png', 'x-chart-status': 'ok', 'x-cache': 'MISS' },
+    })
+    vi.mocked(caches.default.match).mockResolvedValueOnce(stored)
+    const calls = svgToPngMock.mock.calls.length
+    const response = await worker.fetch(new Request('https://charts.test/api/png/owner/repo'))
+    expect(svgToPngMock.mock.calls.length).toBe(calls)
+    expect(response.headers.get('x-cache')).toBe('HIT')
+    expect(response.headers.get('content-type')).toBe('image/png')
+  })
+  it('stores a one-day fallback copy of the PNG like the SVG route', async () => {
+    await worker.fetch(new Request('https://charts.test/api/png/owner/repo'))
+    const puts = vi.mocked(caches.default.put).mock.calls.slice(-2)
+    expect(puts.map(([request]) => (request as Request).url)).toEqual([
+      'https://charts.test/api/png/owner/repo',
+      'https://charts.test/api/png/owner/repo?_stale=1',
+    ])
+    expect(puts[0][1].headers.get('content-type')).toBe('image/png')
+    expect(puts[1][1].headers.get('cache-control')).toContain('s-maxage=86400')
+  })
+  it('falls back to the SVG error chart when the rasteriser itself fails', async () => {
+    svgToPngMock.mockRejectedValue(new Error('wasm unavailable'))
+    const response = await worker.fetch(new Request('https://charts.test/api/png/owner/repo?metrics=nope'))
+    expect(response.headers.get('content-type')).toContain('image/svg+xml')
+    expect(response.headers.get('x-chart-status')).toBe('error')
+    expect(await response.text()).toContain('Unknown metric')
   })
 })
 

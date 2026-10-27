@@ -54,12 +54,25 @@ GET /api/chart/{owner}/{repo}
 
 `rating` 是 1 到 5 的加权平均分，`ratings` 是评分人数。下载量使用左侧坐标轴，评分指标使用右侧坐标轴。同时选择两个评分指标时，右侧坐标轴标签成对显示平均分 / 人数。折线使用真实的观测时间戳，不假设采样间隔均匀。评分历史中的空缺不会被连线。若所选范围起点晚于首次观测时间，则把最后一次已知值延伸到起点边界，这对累计指标是正确表示。
 
+### PNG 接口
+
+```text
+GET /api/png/{owner}/{repo}
+```
+
+参数与 SVG 接口相同，返回按所请求的 `width` × `height` 栅格化的同一张图表，格式为透明底 `image/png`。缓存时长与 `X-Cache` / `X-Chart-Status` 响应头语义与 SVG 接口一致，包括 24 小时 stale 兜底。输入错误与上游错误会渲染为 PNG 错误图；若栅格化本身失败，则改回 SVG 错误图，保证错误仍然可见。
+
+PNG 在渲染时即定格，无法像 `auto` 的 SVG 那样跟随读者：`lang=auto` 与 `theme=auto`——无论是显式指定还是使用默认值——都会被解析为英语与浅色。需要固定的中文或深色版本时，请显式指定 `lang=zh` 和/或 `theme=dark`。图表不绘制背景卡片，因此 PNG 会直接合成到放置页面的底色之上。
+
+文字使用 Noto Sans（中文另加 Noto Sans SC）渲染，字体在每个边缘节点首次使用时从 Google Fonts 拉取并进入缓存，服务本身不打包字体。已知局限：边缘节点上的首次中文渲染需要先下载约 10 MB 的字体文件才能缓存；中文粗体字会回退到 SC 常规字重；若 Google Fonts 不可达，PNG 会在无文字的情况下渲染，而不是直接报错。
+
 ### 示例
 
 ```text
 /api/chart/OWNER/REPO?metrics=downloads&range=30d&area=true&lang=zh
 /api/chart/OWNER/REPO?metrics=downloads,rating&theme=dark&width=960&height=480&lang=zh
 /api/chart/OWNER/REPO?metrics=rating,ratings&start=2026-08-01&end=2026-10-01&lang=zh
+/api/png/OWNER/REPO?metrics=downloads,rating&theme=dark&lang=zh
 ```
 
 SVG 刻意保持静态：没有脚本、外部资源、Cookie 或运行时的浏览器依赖。GitHub 的图片代理可以安全地缓存并渲染它。
