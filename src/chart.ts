@@ -29,6 +29,12 @@ export interface ChartOptions {
   area: boolean;
   lang: ChartLanguage;
   repo: string;
+  /**
+   * Internal only, never a query parameter: omit the palette background rect
+   * (and the endpoint ring that is stroked in the background colour) so a
+   * rasteriser can emit a genuinely transparent image. See src/png.ts.
+   */
+  transparent?: boolean;
 }
 
 /** A metric value resolved from a ChartPoint, tagged with its index in the history. */
@@ -332,7 +338,9 @@ function renderChartDocument(points: ChartPoint[], options: ChartOptions, lang: 
     `<desc id="chart-desc">${escapeXml(lang === 'zh' ? '仓库指标时间折线图' : 'Repository metrics over time')}</desc>`,
     ...(auto ? [AUTO_STYLE] : []),
   ];
-  svg.push(`<rect width="100%" height="100%" rx="8" ${paint('background', 'fill')}/>`);
+  // A transparent chart skips the background card entirely: the plot, grid and
+  // labels paint directly onto whatever the reader places the PNG over.
+  if (!options.transparent) svg.push(`<rect width="100%" height="100%" rx="8" ${paint('background', 'fill')}/>`);
 
   if (options.title) {
     const suffix = hasTime ? ` · ${date(maxTime)}` : '';
@@ -407,7 +415,10 @@ function renderChartDocument(points: ChartPoint[], options: ChartOptions, lang: 
       }
     }
     const last = segments.at(-1)?.points.at(-1);
-    if (last) svg.push(`<circle data-endpoint="${metric}" cx="${num(x(last.t))}" cy="${num(y(metric, last.value))}" r="3.5" fill="${color}" ${paint('background', 'stroke', 'chart-ring')} stroke-width="1.5"/>`);
+    // The endpoint ring is stroked in the background colour to lift the dot off
+    // the line; on a transparent canvas there is no background colour, and a
+    // light-coloured halo would show on dark pages, so the ring is omitted.
+    if (last) svg.push(`<circle data-endpoint="${metric}" cx="${num(x(last.t))}" cy="${num(y(metric, last.value))}" r="3.5" fill="${color}"${options.transparent ? '' : ` ${paint('background', 'stroke', 'chart-ring')} stroke-width="1.5"`}/>`);
   }
 
   if (!all.length) {

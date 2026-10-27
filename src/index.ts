@@ -1,18 +1,22 @@
 /**
  * Worker entry point: serves the chart builder at /, SVG charts at
- * /api/chart/{owner}/{repo}, and always answers expected errors with SVG.
+ * /api/chart/{owner}/{repo} and transparent PNG charts at
+ * /api/png/{owner}/{repo}. SVG routes always answer expected errors with
+ * SVG; the PNG route answers with a rasterised error chart instead.
  */
 import { waitUntil } from 'cloudflare:workers'
-import { renderAutoErrorChart, renderChart, renderErrorChart } from './chart'
+import { renderAutoErrorChart, renderChart, renderErrorChart, type ChartOptions } from './chart'
 import demoHtml from './demo/demo.html?raw'
 import demoScript from './demo/demo.js?raw'
 import demoStyles from './demo/demo.css?raw'
 import { ChartError, loadPackage } from './data'
+import type { ResolvedLanguage } from './fonts'
 import { localizeError } from './i18n'
 import { parseOptions, sliceHistory } from './options'
+import { svgToPng } from './png'
 
 /** Owner/repo path shape; validation mirrors GitHub's own slug rules. */
-const route = /^\/api\/chart\/([A-Za-z0-9](?:[A-Za-z0-9-]{0,38}))\/([A-Za-z0-9_.-]{1,100})\/?$/
+const route = /^\/api\/(chart|png)\/([A-Za-z0-9](?:[A-Za-z0-9-]{0,38}))\/([A-Za-z0-9_.-]{1,100})\/?$/
 /** Charts are inert images, so their policy can stay maximally strict. */
 const SECURITY = { 'X-Content-Type-Options': 'nosniff', 'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline'; sandbox", 'Access-Control-Allow-Origin': '*' }
 /** The builder needs inline style and script plus Cloudflare's analytics beacon. */
@@ -35,6 +39,11 @@ const demoPage = demoHtml
  */
 function svg(body: string, status = 200, error = false, cache = 'MISS'): Response {
   return new Response(body, { status, headers: { ...SECURITY, 'Content-Type': 'image/svg+xml; charset=utf-8', 'Cache-Control': `public, max-age=60, s-maxage=${error ? 60 : 1800}`, 'CDN-Cache-Control': `max-age=${error ? 60 : 1800}`, 'X-Chart-Status': error ? 'error' : 'ok', 'X-Cache': cache, Vary: 'Accept-Encoding' } })
+}
+
+/** PNG twin of svg(): identical cache and status header semantics. */
+function png(body: Uint8Array, status = 200, error = false, cache = 'MISS'): Response {
+  return new Response(body as BodyInit, { status, headers: { ...SECURITY, 'Content-Type': 'image/png', 'Cache-Control': `public, max-age=60, s-maxage=${error ? 60 : 1800}`, 'CDN-Cache-Control': `max-age=${error ? 60 : 1800}`, 'X-Chart-Status': error ? 'error' : 'ok', 'X-Cache': cache, Vary: 'Accept-Encoding' } })
 }
 
 /** A stored copy carries the X-Cache it was written with, so restamp it on the way out. */
@@ -61,17 +70,67 @@ function errorChart(url: URL, error: ChartError): string {
   return renderAutoErrorChart(en.message, en.hint, zh.message, zh.hint)
 }
 
+/**
+ * Resolve parsed options for rasterisation.
+ *
+ * A PNG is frozen at render time, so it cannot follow the reader the way the
+ * auto SVG does: `lang=auto` and `theme=auto` — explicit or defaulted — are
+ * resolved to English and light, exactly as issue #10 specifies. Explicit
+ * lang=zh / theme=dark are honoured, and the background is always omitted
+ * so the PNG is transparent.
+ */
+function pngOptions(options: ChartOptions): ChartOptions & { lang: ResolvedLanguage } {
+  return {
+    ...options,
+    lang: options.lang === 'zh' ? 'zh' : 'en',
+    theme: options.theme === 'dark' ? 'dark' : 'light',
+    transparent: true,
+  }
+}
+
+/**
+ * PNG error surface: the single-language error chart, rasterised.
+ *
+ * Unlike successful charts the error card keeps its opaque light background
+ * so the message stays readable on any page colour. If the rasteriser
+ * itself is what failed, fall back to the SVG error chart — a visible SVG
+ * beats a broken-image icon, and the status headers stay honest.
+ */
+async function pngError(url: URL, error: ChartError): Promise<Response> {
+  const lang: ResolvedLanguage = url.searchParams.get('lang') === 'zh' ? 'zh' : 'en'
+  const text = localizeError(error.code, error.values, lang)
+  const chart = renderErrorChart(text.message, text.hint, 'error', lang)
+  try {
+    return png(await svgToPng(chart, lang), 200, true)
+  } catch (cause) {
+    console.error('PNG error chart failed; serving the SVG error chart', cause)
+    return svg(chart, 200, true)
+  }
+}
+
 export default {
   async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url)
+    const isPng = url.pathname.startsWith('/api/png/')
     // Only GET and HEAD are meaningful; anything else renders a visible error.
-    if (request.method !== 'GET' && request.method !== 'HEAD') return svg(errorChart(url, new ChartError('methodNotAllowed')), 200, true)
+    if (request.method !== 'GET' && request.method !== 'HEAD') {
+      return isPng
+        ? pngError(url, new ChartError('methodNotAllowed'))
+        : svg(errorChart(url, new ChartError('methodNotAllowed')), 200, true)
+    }
     if (url.pathname === '/' || url.pathname === '/index.html') return demo(request)
     if (url.pathname === '/favicon.ico') return new Response(null, { status: 204 })
     if (url.pathname === '/robots.txt') return new Response(request.method === 'HEAD' ? null : 'User-agent: *\nAllow: /\n', { headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'public, max-age=3600' } })
-    // Unknown paths still return SVG so an embed fails visibly instead of blank.
+    // Unknown paths still return an image so an embed fails visibly instead
+    // of blank: SVG for chart-shaped paths, a rasterised error for PNG ones.
+    // The PNG branch must match here, before the generic SVG fallback.
     const match = route.exec(url.pathname)
-    if (!match) return svg(errorChart(url, new ChartError('invalidChartUrl')), 200, true)
+    if (!match) {
+      return isPng
+        ? pngError(url, new ChartError('invalidChartUrl'))
+        : svg(errorChart(url, new ChartError('invalidChartUrl')), 200, true)
+    }
+    const isPngRoute = match[1] === 'png'
     const cacheKey = new Request(url.toString(), { method: 'GET' })
     const staleUrl = new URL(url)
     staleUrl.searchParams.set('_stale', '1')
@@ -80,15 +139,16 @@ export default {
       const options = parseOptions(url)
       const cached = await caches.default.match(cacheKey)
       if (cached) return cacheHit(cached)
-      const pkg = await loadPackage(`${match[1]}/${match[2]}`)
+      const pkg = await loadPackage(`${match[2]}/${match[3]}`)
       const history = sliceHistory(
         pkg.history,
         options.start === undefined ? undefined : options.start * 1000,
         options.end === undefined ? undefined : options.end * 1000,
       )
       if (!history.length) throw new ChartError('noHistoryInRange', {}, 404)
-      const chart = renderChart(history, options)
-      const response = svg(chart)
+      const resolved = isPngRoute ? pngOptions(options) : options
+      const chart = renderChart(history, resolved)
+      const response = isPngRoute ? png(await svgToPng(chart, resolved.lang as ResolvedLanguage)) : svg(chart)
       response.headers.set('X-Fetched-At', new Date().toISOString())
       if (pkg.stale) response.headers.set('X-Data-Stale', 'true')
       const staleCopy = response.clone()
@@ -110,7 +170,7 @@ export default {
       }
       const error = cause instanceof ChartError ? cause : new ChartError('renderFailed', {}, 502)
       if (!(cause instanceof ChartError)) console.error('Chart generation failed', cause)
-      return svg(errorChart(url, error), 200, true)
+      return isPngRoute ? pngError(url, error) : svg(errorChart(url, error), 200, true)
     }
   },
 } satisfies ExportedHandler
