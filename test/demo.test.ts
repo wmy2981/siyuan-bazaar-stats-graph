@@ -104,6 +104,36 @@ describe('chart preview status', () => {
   })
 })
 
+describe('sliding switch thumb', () => {
+  it('defines one shared thumb with the common slide transition', () => {
+    const styles = readFileSync(new URL('../src/demo/demo.css', import.meta.url), 'utf8')
+    expect(styles).toMatch(/\.slidable-thumb\s*\{[^}]*position:\s*absolute;/)
+    expect(styles).toMatch(/\.slidable-thumb\s*\{[^}]*transform 240ms cubic-bezier\(0\.22, 1, 0\.36, 1\)/)
+    expect(styles).toMatch(/\.has-slidable\.is-dragging \.slidable-thumb\s*\{\s*transition:\s*none;/)
+    // With a thumb, selected items keep only their text colour, not a second fill.
+    expect(styles).toContain('.segmented.has-slidable .segment span')
+    expect(styles).toContain('.page-theme-switch.has-slidable .page-theme-option')
+    expect(styles).toContain('.language-switch.has-slidable .language-option')
+  })
+
+  it('routes every group through one reusable drag helper', () => {
+    for (const token of ['makeSlidable', 'slidable-thumb', 'setPointerCapture', 'pointerdown', 'pointermove', 'pointerup', 'nearestIndex', 'activateSegment']) {
+      expect(script).toContain(token)
+    }
+    // One helper definition, four call sites (theme, language, both segmented groups share the loop).
+    expect(script.match(/function makeSlidable/g)).toHaveLength(1)
+    expect(script.match(/makeSlidable\(/g)?.length).toBeGreaterThanOrEqual(4)
+  })
+
+  it('loads without switch groups or pointer APIs in the harness', () => {
+    // document.querySelectorAll returns [] here, so no group exists; the script
+    // must still initialise the builder exactly as before.
+    const { nodes } = loadDemo(vi.fn(async () => { throw new Error('offline') }))
+    expect(nodes['#chart-form']).toBeDefined()
+    expect(nodes['#repo'].value).toBe('owner/repo')
+  })
+})
+
 function plainText(markup: string) {
   return markup
     .replaceAll('</span>', '')

@@ -223,6 +223,267 @@
 	let previewRequest = 0;
 	let metricsNoticeShown = false;
 
+	/** Sliding-thumb switch groups; refreshed whenever a selection or layout changes. */
+	const slidables = [];
+
+	/** Re-align every thumb; safe to call before any group is set up. */
+	function refreshSlidables() {
+		for (const slidable of slidables) {
+			try {
+				slidable?.refresh();
+			} catch {}
+		}
+	}
+
+	/** The radio inside a segmented label, or null when the markup is incomplete. */
+	function segmentInput(label) {
+		try {
+			return typeof label?.querySelector === 'function' ? label.querySelector('input') : null;
+		} catch {
+			return null;
+		}
+	}
+
+	/**
+	 * Give one switch group a sliding thumb and drag-to-switch behaviour.
+	 *
+	 * All four groups share this helper: CSS paints the thumb, this code only
+	 * measures the selected item and positions the thumb over it. Dragging moves
+	 * the thumb with the pointer (transition disabled); releasing snaps to the
+	 * nearest item and activates it through the group's own callback, so click,
+	 * keyboard and radio/button semantics stay exactly as they were. Every DOM
+	 * access is guarded because the script also runs against minimal test stubs.
+	 */
+	function makeSlidable(group, items, { isSelected, activate }) {
+		if (!group || typeof group.addEventListener !== 'function' || !Array.isArray(items) || items.length < 2) return null;
+		if (typeof document.createElement !== 'function') return null;
+		let thumb;
+		try {
+			thumb = document.createElement('span');
+		} catch {
+			return null;
+		}
+		if (!thumb) return null;
+		thumb.className = 'slidable-thumb';
+		try {
+			thumb.setAttribute('aria-hidden', 'true');
+		} catch {}
+		if (!thumb.style) thumb.style = {};
+		try {
+			if (typeof group.append === 'function') group.append(thumb);
+			else if (typeof group.appendChild === 'function') group.appendChild(thumb);
+			else return null;
+		} catch {
+			return null;
+		}
+		try {
+			group.classList?.add('has-slidable');
+		} catch {}
+
+		const selectedIndex = () => items.findIndex((item) => {
+			try {
+				return Boolean(isSelected(item));
+			} catch {
+				return false;
+			}
+		});
+
+		function refresh() {
+			const index = selectedIndex();
+			const item = index >= 0 ? items[index] : null;
+			const width = item?.offsetWidth || 0;
+			const height = item?.offsetHeight || 0;
+			if (!item || !width || !height) {
+				thumb.style.opacity = '0';
+				return;
+			}
+			thumb.style.opacity = '1';
+			thumb.style.width = `${width}px`;
+			thumb.style.height = `${height}px`;
+			thumb.style.transform = `translate(${item.offsetLeft || 0}px, ${item.offsetTop || 0}px)`;
+		}
+
+		/** Index of the item whose centre is closest to a group-relative x. */
+		function nearestIndex(x) {
+			let best = 0;
+			let bestDistance = Infinity;
+			items.forEach((item, index) => {
+				const centre = (item.offsetLeft || 0) + (item.offsetWidth || 0) / 2;
+				const distance = Math.abs(centre - x);
+				if (distance < bestDistance) {
+					bestDistance = distance;
+					best = index;
+				}
+			});
+			return best;
+		}
+
+		/** Pointer x relative to the group's padding box (the offsetLeft origin). */
+		function pointerX(event) {
+			if (typeof event.clientX !== 'number' || typeof group.getBoundingClientRect !== 'function') return null;
+			const rect = group.getBoundingClientRect();
+			if (!rect) return null;
+			return event.clientX - rect.left - (group.clientLeft || 0);
+		}
+
+		let drag = null;
+		let suppressClick = false;
+		let suppressTimer;
+
+		group.addEventListener('pointerdown', (event) => {
+			if (event.isPrimary === false) return;
+			if (event.pointerType === 'mouse' && typeof event.button === 'number' && event.button !== 0) return;
+			const x = pointerX(event);
+			const index = selectedIndex();
+			if (x === null || index < 0) return;
+			const item = items[index];
+			drag = {
+				id: event.pointerId,
+				startX: x,
+				grab: x - (item.offsetLeft || 0),
+				top: item.offsetTop || 0,
+				width: item.offsetWidth || 0,
+				candidate: index,
+				moved: false,
+			};
+			try {
+				group.setPointerCapture?.(event.pointerId);
+			} catch {}
+		});
+
+		group.addEventListener('pointermove', (event) => {
+			if (!drag || (drag.id !== undefined && event.pointerId !== drag.id)) return;
+			const x = pointerX(event);
+			if (x === null) return;
+			if (Math.abs(x - drag.startX) > 3) drag.moved = true;
+			if (!drag.moved) return;
+			try {
+				group.classList?.add('is-dragging');
+			} catch {}
+			const first = items[0];
+			const last = items[items.length - 1];
+			const min = first.offsetLeft || 0;
+			const max = (last.offsetLeft || 0) + (last.offsetWidth || 0) - drag.width;
+			const left = Math.min(max, Math.max(min, x - drag.grab));
+			thumb.style.transform = `translate(${left}px, ${drag.top}px)`;
+			drag.candidate = nearestIndex(x);
+		});
+
+		const endDrag = (event) => {
+			if (!drag || (drag.id !== undefined && event.pointerId !== drag.id)) return;
+			const { candidate, moved } = drag;
+			drag = null;
+			try {
+				group.classList?.remove('is-dragging');
+			} catch {}
+			if (moved) {
+				// The release may still produce a native click on the item under the
+				// pointer; swallow that one trusted click (the programmatic
+				// activation below is untrusted and passes through), and clear the
+				// flag again shortly in case no native click follows.
+				suppressClick = true;
+				clearTimeout(suppressTimer);
+				suppressTimer = setTimeout(() => {
+					suppressClick = false;
+				}, 350);
+				try {
+					activate(items[candidate], candidate);
+				} catch {}
+			}
+			refresh();
+		};
+		group.addEventListener('pointerup', endDrag);
+		group.addEventListener('pointercancel', endDrag);
+
+		// Capture phase so a swallowed click never reaches the item handlers.
+		group.addEventListener('click', (event) => {
+			if (suppressClick && event.isTrusted) {
+				suppressClick = false;
+				clearTimeout(suppressTimer);
+				event.preventDefault();
+				event.stopPropagation();
+			}
+		}, true);
+
+		// Plain clicks and keyboard-driven changes re-align the thumb as well.
+		group.addEventListener('click', () => refresh());
+		group.addEventListener('change', () => refresh());
+
+		refresh();
+		return { refresh };
+	}
+
+	/** Activate a segmented label: check its radio and let the form logic run. */
+	function activateSegment(label) {
+		const input = segmentInput(label);
+		if (!input || input.checked) return;
+		input.checked = true;
+		let event = null;
+		try {
+			event = new Event('change', { bubbles: true });
+		} catch {}
+		try {
+			if (event && typeof input.dispatchEvent === 'function') input.dispatchEvent(event);
+			else if (event && form && typeof form.dispatchEvent === 'function') form.dispatchEvent(event);
+		} catch {}
+	}
+
+	/** Wire the four switch groups (top-bar theme/language, range/theme segments). */
+	function setupSlidables() {
+		const groupFor = (buttons, selector) => {
+			if (buttons[0]?.parentElement) return buttons[0].parentElement;
+			try {
+				return typeof document.querySelector === 'function' ? document.querySelector(selector) : null;
+			} catch {
+				return null;
+			}
+		};
+		const themeGroup = groupFor(pageThemeButtons, '.page-theme-switch');
+		const languageGroup = groupFor(pageLanguageButtons, '.language-switch');
+		const themeSlidable = makeSlidable(themeGroup, pageThemeButtons, {
+			isSelected: (button) => button.getAttribute?.('aria-pressed') === 'true' || button.dataset?.pageThemeMode === pageThemeMode,
+			activate: (button) => {
+				if (typeof button.click === 'function') button.click();
+				else applyPageTheme(button.dataset?.pageThemeMode, true);
+			},
+		});
+		if (themeSlidable) slidables.push(themeSlidable);
+		const languageSlidable = makeSlidable(languageGroup, pageLanguageButtons, {
+			isSelected: (button) => button.getAttribute?.('aria-pressed') === 'true' || button.dataset?.pageLang === pageLang,
+			activate: (button) => {
+				if (typeof button.click === 'function') button.click();
+				else if (button.dataset?.pageLang && button.dataset.pageLang !== pageLang) applyLanguage(button.dataset.pageLang);
+			},
+		});
+		if (languageSlidable) slidables.push(languageSlidable);
+
+		let segmentedGroups = [];
+		try {
+			if (typeof document.querySelectorAll === 'function') segmentedGroups = [...document.querySelectorAll('.segmented')];
+		} catch {}
+		for (const group of segmentedGroups) {
+			let labels = [];
+			try {
+				labels = typeof group.querySelectorAll === 'function' ? [...group.querySelectorAll('.segment')] : [];
+			} catch {}
+			const slidable = makeSlidable(group, labels, {
+				isSelected: (label) => Boolean(segmentInput(label)?.checked),
+				activate: (label) => {
+					// Clear the rest of the group explicitly instead of relying on
+					// the browser's radio-group bookkeeping alone.
+					for (const other of labels) {
+						if (other === label) continue;
+						const otherInput = segmentInput(other);
+						if (otherInput) otherInput.checked = false;
+					}
+					activateSegment(label);
+				},
+			});
+			if (slidable) slidables.push(slidable);
+		}
+		refreshSlidables();
+	}
+
 	/** Pick Chinese when the browser's first language preference is Chinese. */
 	function detectPageLanguage() {
 		const preferred = navigator.languages?.[0] || navigator.language || 'en';
@@ -244,6 +505,7 @@
 				localStorage.setItem(THEME_STORAGE_KEY, pageThemeMode);
 			} catch {}
 		}
+		refreshSlidables();
 	}
 
 	/** Look up a message and substitute its {placeholders}. */
@@ -617,6 +879,8 @@
 			repoError.textContent = normalizeRepo(repoInput.value) ? '' : t('field.repoError');
 		}
 		if (!dateError.hidden) dateError.textContent = t('field.dateError');
+		// Translated labels change item widths, so re-measure before painting.
+		refreshSlidables();
 		update();
 	}
 
@@ -709,7 +973,14 @@
 		});
 	}
 
+	if (typeof window.addEventListener === 'function') {
+		window.addEventListener('resize', refreshSlidables);
+		window.addEventListener('load', refreshSlidables);
+	}
+
+	setupSlidables();
 	syncCustomDates();
 	applyPageTheme(pageThemeMode);
 	applyLanguage(pageLang);
+	refreshSlidables();
 })();

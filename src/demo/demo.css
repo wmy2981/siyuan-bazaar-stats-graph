@@ -302,6 +302,7 @@ select {
 
 .page-theme-switch,
 .language-switch {
+	position: relative;
 	display: inline-flex;
 	padding: 2px;
 	border: 1px solid var(--line-strong);
@@ -309,7 +310,53 @@ select {
 	background: var(--surface-translucent);
 }
 
+/* Shared sliding thumb for every switch group (added by demo.js). One visual
+   language everywhere: same fill, radius, travel time and easing. The thumb is
+   positioned purely from the selected item's measured offset/size, so it stays
+   aligned at every breakpoint and in both languages. */
+.slidable-thumb {
+	position: absolute;
+	top: 0;
+	left: 0;
+	z-index: 0;
+	border-radius: 1px;
+	background: var(--solid);
+	opacity: 0;
+	pointer-events: none;
+	transition:
+		transform 240ms cubic-bezier(0.22, 1, 0.36, 1),
+		width 240ms cubic-bezier(0.22, 1, 0.36, 1),
+		height 240ms cubic-bezier(0.22, 1, 0.36, 1),
+		opacity 180ms ease;
+}
+
+.has-slidable {
+	touch-action: pan-y;
+}
+
+.has-slidable.is-dragging .slidable-thumb {
+	transition: none;
+}
+
+.has-slidable .page-theme-option,
+.has-slidable .language-option,
+.has-slidable .segment {
+	z-index: 1;
+}
+
+/* With a thumb present it paints the selected background, so the items keep
+   only their selected text colour and never draw a second fill. */
+.page-theme-switch.has-slidable .page-theme-option,
+.page-theme-switch.has-slidable .page-theme-option:hover,
+.language-switch.has-slidable .language-option,
+.language-switch.has-slidable .language-option:hover,
+.segmented.has-slidable .segment span,
+.segmented.has-slidable .segment:hover span {
+	background: transparent;
+}
+
 .page-theme-option {
+	position: relative;
 	display: grid;
 	width: 30px;
 	height: 28px;
@@ -320,6 +367,7 @@ select {
 	background: transparent;
 	cursor: pointer;
 	place-items: center;
+	transition: color 240ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .page-theme-option svg {
@@ -343,6 +391,7 @@ select {
 }
 
 .language-option {
+	position: relative;
 	min-width: 42px;
 	height: 28px;
 	padding: 0 8px;
@@ -353,6 +402,7 @@ select {
 	font-family: var(--mono);
 	font-size: 11px;
 	cursor: pointer;
+	transition: color 240ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .language-option:hover {
@@ -644,6 +694,7 @@ input[aria-invalid="true"] {
 
 /* Segmented radio groups (range, theme, size presets). */
 .segmented {
+	position: relative;
 	display: flex;
 	flex-wrap: wrap;
 	gap: 2px;
@@ -668,6 +719,7 @@ input[aria-invalid="true"] {
 	font-size: 12.5px;
 	line-height: 1.25;
 	white-space: nowrap;
+	transition: color 240ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .segment:hover span {
