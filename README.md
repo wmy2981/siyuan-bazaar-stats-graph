@@ -54,12 +54,25 @@ Colours are delivered as CSS custom properties in an inline `<style>` element, s
 
 `rating` is the weighted average from 1 to 5. `ratings` is the number of ratings. Downloads use the left axis; rating metrics use the right. When both rating metrics are selected, paired right-axis labels show average / count. Lines use actual observation timestamps rather than assuming evenly spaced samples. Gaps in rating history are not connected. A range beginning after the first observation carries the last known value to the start boundary, which correctly represents cumulative metrics.
 
+### PNG endpoint
+
+```text
+GET /api/png/{owner}/{repo}
+```
+
+The same parameters return the same chart rasterised as a transparent `image/png` at the requested `width` × `height`, with the same cache lifetimes and `X-Cache` / `X-Chart-Status` header semantics as the SVG endpoint, including the 24-hour stale fallback. Input and upstream errors are rendered as PNG error charts; if the rasteriser itself fails, the SVG error chart is served instead so the failure stays visible.
+
+A PNG is frozen when it is rendered, so it cannot follow the reader like the `auto` SVG does: `lang=auto` and `theme=auto` — whether set explicitly or left at the default — are resolved to English and light. Set `lang=zh` and/or `theme=dark` explicitly for the fixed Chinese or dark variant. The chart background card is not painted, so the PNG composites over whatever page colour it is placed on.
+
+Text is rendered with Noto Sans (plus Noto Sans SC for Chinese), fetched from Google Fonts on first use at each edge location and then kept in the cache; no font is bundled with the service. Known limitations: the first Chinese render at an edge location downloads a ~10 MB font face before it can be cached, Chinese bold text falls back to the regular SC weight, and if Google Fonts is unreachable the PNG is rendered without text rather than failing.
+
 ### Examples
 
 ```text
 /api/chart/OWNER/REPO?metrics=downloads&range=30d&area=true
 /api/chart/OWNER/REPO?metrics=downloads,rating&theme=dark&width=960&height=480
 /api/chart/OWNER/REPO?metrics=rating,ratings&start=2026-08-01&end=2026-10-01&lang=zh
+/api/png/OWNER/REPO?metrics=downloads,rating&theme=dark&lang=zh
 ```
 
 The SVG is intentionally static: no scripts, external resources, cookies or runtime browser dependencies. GitHub's image proxy can safely cache and render it.
