@@ -209,6 +209,22 @@ describe('renderChart', () => {
   });
 });
 
+describe('transparent rendering for the PNG endpoint', () => {
+  it('omits the background card and the endpoint ring', () => {
+    const points = [{ t: time(1), d: 1 }, { t: time(2), d: 2 }];
+    const svg = renderChart(points, options({ transparent: true }));
+    expect(svg).not.toContain('<rect width="100%"');
+    expect(svg).not.toContain('stroke-width="1.5"');
+    expect(svg).toMatch(/<circle data-endpoint="downloads"[^>]*fill="#0f9f8f"\/>/);
+    // Everything else — lines, labels, palette colours — is unchanged.
+    expect(svg).toContain('data-metric="downloads"');
+    expect(svg).toContain('#506579');
+    const opaque = renderChart(points, options());
+    expect(opaque).toContain('<rect width="100%" height="100%" rx="8" fill="#f5f8fb"/>');
+    expect(opaque).toContain('stroke-width="1.5"');
+  });
+});
+
 describe('renderErrorChart', () => {
   it('renders escaped, complete multi-line hints without scripts or external assets', () => {
     const hint = `Check https://example.com/${'averylongpath&'.repeat(12)} then retry.\n第二行 <完整> 可读`;
