@@ -96,16 +96,54 @@ describe('renderChart', () => {
     expect(svg).toMatch(/>1 \/ \d+<\/text>/);
   });
 
-  it('dashes the ratings line when it shares the right axis with the rating average', () => {
+  it('dots the ratings line when it shares the right axis with the rating average', () => {
     const svg = renderChart([
       { t: time(1), d: 10, a: 5, c: 2 },
       { t: time(2), d: 20, a: 5, c: 3 },
     ], options({ metrics: ['downloads', 'rating', 'ratings'] }));
-    expect(svg).toMatch(/<polyline data-metric="ratings"[^>]*stroke-dasharray="12 9"/);
-    expect(svg).toMatch(/<polyline data-metric="ratings"[^>]*stroke-linecap="butt"/);
-    expect(svg).toMatch(/<line data-legend="ratings"[^>]*stroke-dasharray=/);
+    // A near-zero dash with round caps renders as even dots, not long hand-drawn dashes.
+    expect(svg).toMatch(/<polyline data-metric="ratings"[^>]*stroke-dasharray="0\.5 6"/);
+    expect(svg).toMatch(/<polyline data-metric="ratings"[^>]*stroke-linecap="round"/);
+    expect(svg).not.toContain('stroke-dasharray="12 9"');
+    expect(svg).not.toContain('stroke-linecap="butt"');
+    // The legend swatch uses the exact same dotted pattern and cap as the line.
+    expect(svg).toMatch(/<line data-legend="ratings"[^>]*stroke-dasharray="0\.5 6"/);
+    expect(svg).toMatch(/<line data-legend="ratings"[^>]*stroke-linecap="round"/);
     expect(svg).not.toMatch(/<polyline data-metric="rating"[^>]*stroke-dasharray/);
     expect(svg).not.toMatch(/<line data-legend="rating"[^>]*stroke-dasharray/);
+  });
+
+  it('draws a background halo under every line before any line, in both themes', () => {
+    const points = [
+      { t: time(1), d: 10, a: 5, c: 2 },
+      { t: time(2), d: 20, a: 5, c: 3 },
+    ];
+    for (const [theme, background] of [['light', '#f5f8fb'], ['dark', '#18232f']] as const) {
+      const svg = renderChart(points, options({ theme, metrics: ['downloads', 'rating', 'ratings'], area: true }));
+      const halos = [...svg.matchAll(/<polyline data-halo="([^"]+)" points="([^"]+)"[^>]*stroke="([^"]+)" stroke-width="([\d.]+)"/g)];
+      const lines = [...svg.matchAll(/<polyline data-metric="([^"]+)"[^>]* points="([^"]+)"/g)];
+      expect(halos.map((halo) => halo[1])).toEqual(['downloads', 'rating', 'ratings']);
+      // Each halo traces its line exactly, is wider, and uses the background colour.
+      for (const halo of halos) {
+        const line = lines.find((candidate) => candidate[1] === halo[1]);
+        expect(line, `${halo[1]} halo must trace its line`).toBeDefined();
+        expect(halo[2]).toBe(line![2]);
+        expect(halo[3]).toBe(background);
+        expect(Number(halo[4])).toBeGreaterThan(2);
+        expect(halo[0]).not.toContain('stroke-dasharray');
+      }
+      // All halos precede all lines, so a halo can never paint over another line,
+      // and the downloads area fill stays underneath its halo.
+      expect(svg.lastIndexOf('data-halo=')).toBeLessThan(svg.indexOf('data-metric='));
+      expect(svg.indexOf('<path')).toBeLessThan(svg.indexOf('data-halo="downloads"'));
+      // Endpoints and single-point behaviour are unaffected by the underlay.
+      expect(svg).toContain('data-endpoint="ratings"');
+    }
+    const auto = renderChart(points, options({ theme: 'auto', metrics: ['downloads', 'rating', 'ratings'] }));
+    expect(auto).toMatch(/<polyline data-halo="rating"[^>]*class="chart-ring" stroke="#f5f8fb"/);
+    const single = renderChart([{ t: time(1), a: 4 }], options({ metrics: ['rating'] }));
+    expect(single).not.toContain('data-halo');
+    expect(single).toContain('<circle');
   });
 
   it('keeps the ratings line solid when the rating average is not drawn', () => {
