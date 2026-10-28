@@ -91,6 +91,6 @@ npm run deploy       # cf deploy, after cf auth login
 
 ## License and attribution
 
-Source code in this repository is [MIT](./LICENSE).
+Source code is [MIT](./LICENSE).
 
-Charts display statistics from [TCOTC/siyuan-bazaar-stats](https://github.com/TCOTC/siyuan-bazaar-stats), published under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). This service reads that data at request time and does not redistribute it; [NOTICE.md](./NOTICE.md) covers attribution, the fields used, the transformations applied and re-use of chart images. Files and icons from `bazaar.b3logfile.com`, `oss.b3logfile.com` and `siyuan-sync.b3logfile.com` belong to their providers and are covered by neither license. This project is not affiliated with or endorsed by SiYuan Note or the SiYuan bazaar.
+Charts display statistics from [TCOTC/siyuan-bazaar-stats](https://github.com/TCOTC/siyuan-bazaar-stats), published under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). [NOTICE.md](./NOTICE.md) covers attribution, the fields used, the transformations applied and re-use of chart images; files and icons from the `b3logfile.com` hosts belong to their providers and are covered by neither license. Not affiliated with or endorsed by SiYuan Note or the SiYuan bazaar.
