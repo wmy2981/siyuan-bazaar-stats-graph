@@ -10,7 +10,7 @@ Static SVG trend charts for [SiYuan Note](https://github.com/siyuan-note/siyuan)
 
 ## Chart builder
 
-Open the [interactive chart builder](https://siyuan-bazaar-stats-graph.sr1.cc.cd/) to choose a repository and every chart parameter, preview the SVG live, and copy the chart URL, HTML image tag, or README Markdown. The chart defaults to `lang=auto`, so embedded charts follow each reader's browser language.
+Open the [interactive chart builder](https://siyuan-bazaar-stats-graph.sr1.cc.cd/) to pick a repository and every chart parameter, preview the SVG live, and copy the chart URL, HTML image tag or README Markdown. Charts default to `lang=auto`, so embeds follow each reader's browser language.
 
 ## Embed in a README
 
@@ -18,9 +18,7 @@ Open the [interactive chart builder](https://siyuan-bazaar-stats-graph.sr1.cc.cd
 ![Package trends](https://siyuan-bazaar-stats-graph.sr1.cc.cd/api/chart/OWNER/REPO?metrics=downloads,rating,ratings&range=90d)
 ```
 
-Replace `OWNER/REPO` with the package's GitHub repository. The service resolves it to the bazaar package through the official package catalog. No API key is required.
-
-Production base URL: `https://siyuan-bazaar-stats-graph.sr1.cc.cd`
+Replace `OWNER/REPO` with the package's GitHub repository; the service resolves it through the official package catalog. No API key is required. Production base URL: `https://siyuan-bazaar-stats-graph.sr1.cc.cd`.
 
 ## Endpoint
 
@@ -28,7 +26,7 @@ Production base URL: `https://siyuan-bazaar-stats-graph.sr1.cc.cd`
 GET /api/chart/{owner}/{repo}
 ```
 
-The response is always a self-contained `image/svg+xml` document, including input and upstream errors. This keeps errors visible instead of producing a broken image in GitHub READMEs. Successful charts have a 30-minute shared cache; error charts expire after one minute. During an upstream outage, the most recent successful chart may be served for up to 24 hours with `X-Chart-Status: stale` and `X-Cache: STALE`. Otherwise `X-Chart-Status` distinguishes `ok` from `error`.
+The response is always a self-contained `image/svg+xml` document, including input and upstream errors, so failures stay visible instead of becoming a broken image in a GitHub README. Successful charts are cached for 30 minutes, error charts for one minute. During an upstream outage the latest successful chart may be served for up to 24 hours with `X-Chart-Status: stale` and `X-Cache: STALE`; otherwise `X-Chart-Status` is `ok` or `error`.
 
 ### Parameters
 
@@ -46,13 +44,11 @@ The response is always a self-contained `image/svg+xml` document, including inpu
 | `area` | `true`, `false`; fill below downloads | `false` |
 | `lang` | `en`, `zh`, `auto` | `auto` |
 
-`theme=auto`, the default, ships both palettes in one SVG and follows the reader's system colour preference. GitHub's page theme cannot reach an image, so a dark system with a light GitHub still shows a dark card; set `theme` explicitly for a fixed look.
+`theme=auto` and `lang=auto` ship both palettes and both languages in one SVG, chosen from the reader's system colour preference and interface language. An image cannot see GitHub's page theme, so a dark system with a light GitHub still gets a dark card; set `theme` or `lang` explicitly for a fixed look.
 
-`lang=auto`, the default, ships both English and Chinese labels in one SVG and selects them from the reader's interface language preferences. Set `lang=en` or `lang=zh` for a fixed language.
+Colours are CSS custom properties in an inline `<style>` element, so the SVG needs CSS variable support. Renderers that ignore `var()` (cairosvg, for example) drop every text element — title, axis labels and legend — leaving only curves and grid, and neither `lang` nor `theme` avoids this. Use a CSS-capable renderer for PDF or PNG pipelines.
 
-Colours are delivered as CSS custom properties in an inline `<style>` element, so the SVG depends on CSS variable support. Browsers render it normally, but renderers that ignore `var()` (cairosvg, for example) drop every text element — title, axis labels and legend — and keep only the curves and grid; `lang` and `theme` do not avoid this. Use a CSS-capable renderer for PDF or PNG pipelines.
-
-`rating` is the weighted average from 1 to 5. `ratings` is the number of ratings. Downloads use the left axis; rating metrics use the right. When both rating metrics are selected, paired right-axis labels show average / count. Lines use actual observation timestamps rather than assuming evenly spaced samples. Gaps in rating history are not connected. A range beginning after the first observation carries the last known value to the start boundary, which correctly represents cumulative metrics.
+`rating` is the weighted average from 1 to 5, `ratings` the number of ratings. Downloads use the left axis, rating metrics the right; with both rating metrics selected, paired right-axis labels show average / count. Lines follow real observation timestamps, rating gaps stay disconnected, and a range starting after the first observation carries the last known value to the boundary — correct for cumulative metrics.
 
 ### Examples
 
@@ -62,18 +58,18 @@ Colours are delivered as CSS custom properties in an inline `<style>` element, s
 /api/chart/OWNER/REPO?metrics=rating,ratings&start=2026-08-01&end=2026-10-01&lang=zh
 ```
 
-The SVG is intentionally static: no scripts, external resources, cookies or runtime browser dependencies. GitHub's image proxy can safely cache and render it.
+The SVG is intentionally static: no scripts, external resources, cookies or runtime browser dependencies, so GitHub's image proxy can cache and render it safely.
 
 ## Data
 
-- Package repository mapping and current catalog: official SiYuan bazaar indexes.
-- History comes from TCOTC/siyuan-bazaar-stats as upstream package detail JSON, with raw monthly snapshots as fallback. Observations are change-only, collected every 30 minutes at best since August 2026; GitHub scheduling may delay them by hours. Charts show the latest observation date.
+- Package mappings and the catalog come from the official SiYuan bazaar indexes.
+- History comes from upstream package detail JSON, with raw monthly snapshots as fallback. Observations are change-only, collected every 30 minutes at best since August 2026, and GitHub scheduling may delay them by hours. Charts show the latest observation date.
 - Timestamps are the bazaar's `publishedAt`, not the collection time, so spacing is uneven and a quiet period has no point.
 - Delisted packages leave the upstream artifacts, so their charts report `packageNotFound`.
-- Artifacts carry `schema`; any other value is shown as an error rather than read with possibly changed field meanings. Fields, URLs and snapshot semantics are frozen in the upstream [data contract](https://github.com/TCOTC/siyuan-bazaar-stats/blob/main/docs/data-contract.md).
+- Artifacts carry `schema`; any other value is shown as an error rather than read with possibly changed field meanings. The upstream [data contract](https://github.com/TCOTC/siyuan-bazaar-stats/blob/main/docs/data-contract.md) freezes fields, URLs and snapshot semantics.
 - Charts are cached for 30 minutes, so a new observation appears up to 30 minutes after upstream publishes it.
 
-This project does not copy or redistribute a separate history database. Upstream availability and corrections flow into subsequently refreshed charts.
+No history database is copied or redistributed, and no field beyond those listed in [NOTICE.md](./NOTICE.md) reaches a chart, so upstream corrections flow into the next refresh.
 
 ## Development
 
@@ -91,6 +87,6 @@ npm run deploy       # cf deploy, after cf auth login
 
 ## License and attribution
 
-Source code in this repository is [MIT](./LICENSE).
+Source code is [MIT](./LICENSE).
 
-Charts display statistics from [TCOTC/siyuan-bazaar-stats](https://github.com/TCOTC/siyuan-bazaar-stats), published under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). This service reads that data at request time and does not redistribute it; [NOTICE.md](./NOTICE.md) covers attribution, the fields used, the transformations applied and re-use of chart images. Files and icons from `bazaar.b3logfile.com`, `oss.b3logfile.com` and `siyuan-sync.b3logfile.com` belong to their providers and are covered by neither license. This project is not affiliated with or endorsed by SiYuan Note or the SiYuan bazaar.
+Charts display statistics from [TCOTC/siyuan-bazaar-stats](https://github.com/TCOTC/siyuan-bazaar-stats), published under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). [NOTICE.md](./NOTICE.md) covers attribution, the fields used, the transformations applied and re-use of chart images; files and icons from the `b3logfile.com` hosts belong to their providers and are covered by neither license. Not affiliated with or endorsed by SiYuan Note or the SiYuan bazaar.
