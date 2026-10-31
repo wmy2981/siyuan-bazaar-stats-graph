@@ -46,7 +46,11 @@ export function parseOptions(url: URL): ChartOptions & { start?: number; end?: n
   }
   const range = one('range') || 'all'
   if (!(range in ranges)) throw new ChartError('unknownRange')
-  /** Dates are UTC days; an end date covers the whole day. */
+  /**
+   * Dates are UTC days and independent: an omitted bound stays open, so start
+   * alone runs to the newest observation and end alone covers everything up to
+   * that day. An end date includes the whole day.
+   */
   const parseDate = (name: string, end = false) => {
     const raw = one(name)
     if (!raw) return undefined
@@ -75,6 +79,8 @@ export function parseOptions(url: URL): ChartOptions & { start?: number; end?: n
 /**
  * Restrict a history to a time window.
  *
+ * Both bounds are optional: an open side keeps that end of the history, so
+ * start-only runs to the newest observation and end-only from the first one.
  * When the window starts after the first observation, the last value before the
  * window is repeated at the boundary so cumulative metrics still read correctly
  * from the left edge of the chart.

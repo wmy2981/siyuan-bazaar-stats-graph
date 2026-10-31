@@ -37,7 +37,7 @@ GET /api/png/chart/{owner}/{repo}
 | --- | --- | --- |
 | `metrics` | Comma-separated `downloads`, `rating`, `ratings` | `downloads` |
 | `range` | `30d`, `90d`, `1y`, `all` | `all` |
-| `start`, `end` | UTC dates, `YYYY-MM-DD`; use instead of `range` | — |
+| `start`, `end` | UTC dates, `YYYY-MM-DD`; pass either or both, instead of `range` | — |
 | `theme` | `light`, `dark`, `auto` | `auto` |
 | `width` | Integer from 320 to 1600 | `800` |
 | `height` | Integer from 200 to 1000 | `400` |
@@ -47,6 +47,8 @@ GET /api/png/chart/{owner}/{repo}
 | `area` | `true`, `false`; fill below downloads | `false` |
 | `updated` | `true`, `false`; show the upstream update time | `true` |
 | `lang` | `en`, `zh`, `auto` | `auto` |
+
+Passing only `start` loads from that date to the newest observation; only `end` loads everything up to that date, covering the whole UTC day; both load that range.
 
 `theme=auto` and `lang=auto` ship both palettes and both languages in one SVG, chosen from the reader's system colour preference and interface language. An image cannot see GitHub's page theme, so a dark system with a light GitHub still gets a dark card; set `theme` or `lang` explicitly for a fixed look.
 

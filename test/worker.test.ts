@@ -103,6 +103,24 @@ describe('SVG Worker', () => {
     // The excluded newest observation appears only in the update line.
     expect(body.match(/2026-09-25/g)).toHaveLength(1)
   })
+  it('renders a start-only range through the newest observation', async () => {
+    const response = await worker.fetch(new Request('https://charts.test/api/chart/owner/repo?metrics=downloads&start=2026-09-01&lang=en'))
+    const body = await response.text()
+    expect(response.headers.get('x-chart-status')).toBe('ok')
+    expect(body).toContain('data-metric="downloads"')
+    // The boundary baseline carries the earlier value to the requested start.
+    expect(body).toContain('2026-09-01')
+    expect(body).toContain('Last updated: 2026-09-25 00:00:00 UTC')
+  })
+  it('renders an end-only range from the first observation', async () => {
+    const response = await worker.fetch(new Request('https://charts.test/api/chart/owner/repo?metrics=downloads&end=2026-09-10&lang=en'))
+    const body = await response.text()
+    expect(response.headers.get('x-chart-status')).toBe('ok')
+    expect(body).toContain('data-endpoint="downloads"')
+    expect(body).toContain('2026-08-26')
+    // The excluded later observation appears only in the update line.
+    expect(body.match(/2026-09-25/g)).toHaveLength(1)
+  })
   it('reports a cache hit in X-Cache', async () => {
     const stored = new Response('<svg xmlns="http://www.w3.org/2000/svg" width="1" height="1"/>', {
       headers: { 'content-type': 'image/svg+xml; charset=utf-8', 'x-chart-status': 'ok', 'x-cache': 'MISS' },

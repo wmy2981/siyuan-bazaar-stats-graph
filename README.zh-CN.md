@@ -37,7 +37,7 @@ GET /api/png/chart/{owner}/{repo}
 | --- | --- | --- |
 | `metrics` | 逗号分隔的 `downloads`、`rating`、`ratings` | `downloads` |
 | `range` | `30d`、`90d`、`1y`、`all` | `all` |
-| `start`、`end` | UTC 日期，格式 `YYYY-MM-DD`；与 `range` 二选一 | — |
+| `start`、`end` | UTC 日期，格式 `YYYY-MM-DD`；至少传一个即可，与 `range` 二选一 | — |
 | `theme` | `light`、`dark`、`auto` | `auto` |
 | `width` | 320 到 1600 之间的整数 | `800` |
 | `height` | 200 到 1000 之间的整数 | `400` |
@@ -47,6 +47,8 @@ GET /api/png/chart/{owner}/{repo}
 | `area` | `true`、`false`；填充下载量曲线下方区域 | `false` |
 | `updated` | `true`、`false`；显示上游数据最后更新时间 | `true` |
 | `lang` | `en`、`zh`、`auto` | `auto` |
+
+只传 `start` 时加载该日期到最新观测，只传 `end` 时加载从最早观测到该日期（含当天），两个都传时加载该区间。
 
 `theme=auto` 与 `lang=auto` 让同一份 SVG 自带两套配色和中英文标签，分别按读者的系统深浅色偏好与界面语言选择。图片拿不到 GitHub 页面主题，系统深色配浅色 GitHub 时仍会显示深色卡片；需要固定外观时显式指定 `theme` 或 `lang`。
 
