@@ -157,6 +157,13 @@ describe('chart preview status', () => {
     const styles = readFileSync(new URL('../src/demo/demo.css', import.meta.url), 'utf8')
     expect(styles).toMatch(/#chart-preview\[hidden\]\s*\{\s*display:\s*none;/)
   })
+
+  it('sizes the toggle knob with border-box so it stays centred in the track', () => {
+    // The global reset does not match pseudo-elements; without this the 1px
+    // border makes the knob 15px in a 17px track and pushes it off centre.
+    const styles = readFileSync(new URL('../src/demo/demo.css', import.meta.url), 'utf8')
+    expect(styles).toMatch(/\.switch::after\s*\{[^}]*box-sizing:\s*border-box;/)
+  })
 })
 
 describe('sliding switch thumbs', () => {
