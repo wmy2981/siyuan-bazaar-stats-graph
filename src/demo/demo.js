@@ -223,6 +223,184 @@
 	let previewRequest = 0;
 	let metricsNoticeShown = false;
 
+	/** Sliding-thumb switch groups; refreshed whenever a selection or layout changes. */
+	const switchGroups = [];
+
+	/** Re-align every thumb; safe to call before the groups are set up. */
+	function refreshSwitchThumbs() {
+		for (const group of switchGroups) group.refresh();
+	}
+
+	/**
+	 * Give one switch group a sliding thumb and drag-to-switch behaviour.
+	 *
+	 * CSS paints the thumb; this code only measures the selected item and moves
+	 * the thumb over it, so one visual language covers the top-bar theme and
+	 * language switches and the range and theme segmented groups. A drag moves
+	 * the thumb with the pointer (transition off) and snaps to the nearest item
+	 * on release, activating it through the group's own callback so click,
+	 * keyboard and radio semantics stay exactly as they were.
+	 */
+	function createSwitchThumb(group, items, isSelected, activate) {
+		if (!group || items.length < 2) return null;
+		const thumb = document.createElement('span');
+		thumb.className = 'switch-thumb';
+		thumb.setAttribute('aria-hidden', 'true');
+		group.prepend(thumb);
+		group.classList.add('has-thumb');
+
+		/** Place the thumb over one item, in the group's padding box. */
+		function place(item) {
+			const groupRect = group.getBoundingClientRect();
+			const rect = item.getBoundingClientRect();
+			thumb.style.width = `${rect.width}px`;
+			thumb.style.height = `${rect.height}px`;
+			thumb.style.transform = `translate(${rect.left - groupRect.left - group.clientLeft}px, ${rect.top - groupRect.top - group.clientTop}px)`;
+		}
+
+		function refresh() {
+			const selected = items.find(isSelected);
+			thumb.style.opacity = selected ? '1' : '0';
+			if (selected) place(selected);
+		}
+
+		let drag;
+		let target;
+		let swallowClick = false;
+
+		group.addEventListener('pointerdown', (event) => {
+			const selected = items.find(isSelected);
+			if (!selected || event.isPrimary === false) return;
+			if (event.pointerType === 'mouse' && event.button !== 0) return;
+			const rect = selected.getBoundingClientRect();
+			// A drag starts on the thumb itself; anywhere else stays a plain click.
+			if (event.clientX < rect.left || event.clientX > rect.right) return;
+			const groupRect = group.getBoundingClientRect();
+			drag = {
+				id: event.pointerId,
+				startX: event.clientX,
+				left: rect.left - groupRect.left - group.clientLeft,
+				top: rect.top - groupRect.top - group.clientTop,
+				width: rect.width,
+				rowTop: rect.top,
+				groupRect,
+				moved: false,
+				candidate: selected,
+			};
+			// While the thumb travels, the item under it is painted as the selection
+			// so its text and icon stay readable against the thumb.
+			target = selected;
+			target.classList.add('is-drag-target');
+			try {
+				group.setPointerCapture(event.pointerId);
+			} catch {
+				// Capture is an optimisation; the drag still works without it.
+			}
+		});
+
+		group.addEventListener('pointermove', (event) => {
+			if (!drag || event.pointerId !== drag.id) return;
+			const dx = event.clientX - drag.startX;
+			if (!drag.moved && Math.abs(dx) < 4) return;
+			if (!drag.moved) {
+				drag.moved = true;
+				group.classList.add('is-dragging');
+			}
+			const first = items[0].getBoundingClientRect();
+			const last = items[items.length - 1].getBoundingClientRect();
+			const min = first.left - drag.groupRect.left - group.clientLeft;
+			const max = last.right - drag.groupRect.left - group.clientLeft - drag.width;
+			const left = Math.min(max, Math.max(min, drag.left + dx));
+			thumb.style.transform = `translate(${left}px, ${drag.top}px)`;
+			// Snap to the nearest item on the thumb's own row: a wrapped group has
+			// several rows and the pointer only travels horizontally.
+			let best = drag.candidate;
+			let bestDistance = Infinity;
+			for (const item of items) {
+				const rect = item.getBoundingClientRect();
+				if (Math.abs(rect.top - drag.rowTop) > 2) continue;
+				const distance = Math.abs(rect.left + rect.width / 2 - event.clientX);
+				if (distance < bestDistance) {
+					bestDistance = distance;
+					best = item;
+				}
+			}
+			drag.candidate = best;
+			if (best !== target) {
+				target?.classList.remove('is-drag-target');
+				target = best;
+				target.classList.add('is-drag-target');
+			}
+		});
+
+		function settle() {
+			drag = undefined;
+			target?.classList.remove('is-drag-target');
+			target = undefined;
+			group.classList.remove('is-dragging');
+			refresh();
+		}
+
+		group.addEventListener('pointerup', (event) => {
+			if (!drag || event.pointerId !== drag.id) return;
+			const { moved, candidate } = drag;
+			settle();
+			if (!moved) return;
+			// The release still produces a native click on the item under the
+			// pointer; swallow that trusted click once. Programmatic activation
+			// below is untrusted, so it passes through.
+			swallowClick = true;
+			setTimeout(() => { swallowClick = false; }, 350);
+			activate(candidate);
+			refresh();
+		});
+
+		group.addEventListener('pointercancel', (event) => {
+			if (!drag || event.pointerId !== drag.id) return;
+			settle();
+		});
+
+		group.addEventListener('click', (event) => {
+			if (swallowClick && event.isTrusted) {
+				swallowClick = false;
+				event.preventDefault();
+				event.stopPropagation();
+			}
+		}, true);
+		group.addEventListener('change', refresh);
+		group.addEventListener('click', refresh);
+
+		refresh();
+		return { refresh };
+	}
+
+	/** Wire the four switch groups: top-bar theme/language, range/theme segments. */
+	function setupSwitchGroups() {
+		const add = (group, items, isSelected, activate) => {
+			const control = createSwitchThumb(group, items, isSelected, activate);
+			if (control) switchGroups.push(control);
+		};
+		add(pageThemeButtons[0]?.parentElement, pageThemeButtons,
+			(button) => button.getAttribute('aria-pressed') === 'true',
+			(button) => applyPageTheme(button.dataset.pageThemeMode, true));
+		add(pageLanguageButtons[0]?.parentElement, pageLanguageButtons,
+			(button) => button.getAttribute('aria-pressed') === 'true',
+			(button) => {
+				if (button.dataset.pageLang !== pageLang) applyLanguage(button.dataset.pageLang);
+			});
+		for (const group of document.querySelectorAll('.segmented')) {
+			const labels = [...group.querySelectorAll('.segment')];
+			add(group, labels,
+				(label) => Boolean(label.querySelector('input')?.checked),
+				(label) => {
+					const input = label.querySelector('input');
+					if (!input || input.checked) return;
+					input.checked = true;
+					input.dispatchEvent(new Event('change', { bubbles: true }));
+				});
+		}
+	}
+
 	/** Pick Chinese when the browser's first language preference is Chinese. */
 	function detectPageLanguage() {
 		const preferred = navigator.languages?.[0] || navigator.language || 'en';
@@ -244,6 +422,7 @@
 				localStorage.setItem(THEME_STORAGE_KEY, pageThemeMode);
 			} catch {}
 		}
+		refreshSwitchThumbs();
 	}
 
 	/** Look up a message and substitute its {placeholders}. */
@@ -617,6 +796,8 @@
 			repoError.textContent = normalizeRepo(repoInput.value) ? '' : t('field.repoError');
 		}
 		if (!dateError.hidden) dateError.textContent = t('field.dateError');
+		// Translated labels change item widths, so re-measure before painting.
+		refreshSwitchThumbs();
 		update();
 	}
 
@@ -709,7 +890,14 @@
 		});
 	}
 
+	if (typeof window.addEventListener === 'function') {
+		window.addEventListener('resize', refreshSwitchThumbs);
+		window.addEventListener('load', refreshSwitchThumbs);
+	}
+
+	setupSwitchGroups();
 	syncCustomDates();
 	applyPageTheme(pageThemeMode);
 	applyLanguage(pageLang);
+	refreshSwitchThumbs();
 })();

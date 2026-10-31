@@ -302,6 +302,7 @@ select {
 
 .page-theme-switch,
 .language-switch {
+	position: relative;
 	display: inline-flex;
 	padding: 2px;
 	border: 1px solid var(--line-strong);
@@ -309,7 +310,56 @@ select {
 	background: var(--surface-translucent);
 }
 
+/* Sliding selection thumb shared by the top-bar switches and the segmented
+   groups. demo.js positions it from the measured bounds of the selected item,
+   so one visual language covers all four groups at every breakpoint. */
+.switch-thumb {
+	position: absolute;
+	top: 0;
+	left: 0;
+	border-radius: 1px;
+	background: var(--solid);
+	pointer-events: none;
+	transition:
+		transform 220ms cubic-bezier(0.22, 1, 0.36, 1),
+		width 220ms cubic-bezier(0.22, 1, 0.36, 1),
+		height 220ms cubic-bezier(0.22, 1, 0.36, 1),
+		opacity 160ms ease;
+}
+
+.has-thumb {
+	touch-action: pan-y;
+	/* A drag must not select the labels it passes over. */
+	user-select: none;
+	-webkit-user-select: none;
+}
+
+.has-thumb.is-dragging {
+	cursor: grabbing;
+}
+
+.has-thumb.is-dragging .switch-thumb {
+	transition: none;
+}
+
+/* While dragging, the thumb sits under the candidate item: colour that item as
+   the selection, mute every other item, and suppress hover fills so they never
+   paint over the thumb. */
+.has-thumb.is-dragging .page-theme-option,
+.has-thumb.is-dragging .language-option,
+.has-thumb.is-dragging .segment span {
+	color: var(--ink-soft);
+	background: transparent;
+}
+
+.has-thumb.is-dragging .page-theme-option.is-drag-target,
+.has-thumb.is-dragging .language-option.is-drag-target,
+.has-thumb.is-dragging .segment.is-drag-target span {
+	color: var(--on-solid);
+}
+
 .page-theme-option {
+	position: relative;
 	display: grid;
 	width: 30px;
 	height: 28px;
@@ -320,6 +370,7 @@ select {
 	background: transparent;
 	cursor: pointer;
 	place-items: center;
+	transition: color 200ms ease;
 }
 
 .page-theme-option svg {
@@ -343,6 +394,7 @@ select {
 }
 
 .language-option {
+	position: relative;
 	min-width: 42px;
 	height: 28px;
 	padding: 0 8px;
@@ -353,6 +405,7 @@ select {
 	font-family: var(--mono);
 	font-size: 11px;
 	cursor: pointer;
+	transition: color 200ms ease;
 }
 
 .language-option:hover {
@@ -644,6 +697,7 @@ input[aria-invalid="true"] {
 
 /* Segmented radio groups (range, theme, size presets). */
 .segmented {
+	position: relative;
 	display: flex;
 	flex-wrap: wrap;
 	gap: 2px;
@@ -668,6 +722,7 @@ input[aria-invalid="true"] {
 	font-size: 12.5px;
 	line-height: 1.25;
 	white-space: nowrap;
+	transition: color 200ms ease;
 }
 
 .segment:hover span {
@@ -683,6 +738,17 @@ input[aria-invalid="true"] {
 .segment:has(input:focus-visible) {
 	outline: 2px solid var(--accent);
 	outline-offset: 1px;
+}
+
+/* With a thumb present it paints the selected fill, so the items keep only
+   their selected text colour and never draw a second background. */
+.has-thumb .page-theme-option[aria-pressed="true"],
+.has-thumb .page-theme-option[aria-pressed="true"]:hover,
+.has-thumb .language-option[aria-pressed="true"],
+.has-thumb .language-option[aria-pressed="true"]:hover,
+.has-thumb .segment:has(input:checked) span,
+.has-thumb .segment:has(input:checked):hover span {
+	background: transparent;
 }
 
 /* Custom start/end date fields, shown only for the custom range. */
