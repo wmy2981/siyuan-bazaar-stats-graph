@@ -24,9 +24,12 @@ Replace `OWNER/REPO` with the package's GitHub repository; the service resolves 
 
 ```text
 GET /api/chart/{owner}/{repo}
+GET /api/png/chart/{owner}/{repo}
 ```
 
-The response is always a self-contained `image/svg+xml` document, including input and upstream errors, so failures stay visible instead of becoming a broken image in a GitHub README. Successful charts are cached for 30 minutes, error charts for one minute. During an upstream outage the latest successful chart may be served for up to 24 hours with `X-Chart-Status: stale` and `X-Cache: STALE`; otherwise `X-Chart-Status` is `ok` or `error`.
+`/api/chart/{owner}/{repo}` always answers with a self-contained `image/svg+xml` document, including input and upstream errors, so failures stay visible instead of becoming a broken image in a GitHub README. Successful charts are cached for 30 minutes, error charts for one minute. During an upstream outage the latest successful chart may be served for up to 24 hours with `X-Chart-Status: stale` and `X-Cache: STALE`; otherwise `X-Chart-Status` is `ok` or `error`.
+
+`/api/png/chart/{owner}/{repo}` returns the same chart as a PNG with a transparent background, for pipelines that cannot render SVG or CSS variables. A raster is frozen at render time, so `lang=auto` and `theme=auto` are not available there: an omitted or auto language and theme resolve to English and light, and explicit `lang=zh` or `theme=dark` still apply. Glyph subsets of Noto Sans / Noto Sans SC (SIL OFL 1.1) are fetched from Google Fonts on the first request per edge location; if that fetch fails the PNG still renders, without text. Error cards keep a light background so the message stays readable. Parameters, caching and status headers match the SVG route.
 
 ### Parameters
 
@@ -47,7 +50,7 @@ The response is always a self-contained `image/svg+xml` document, including inpu
 
 `theme=auto` and `lang=auto` ship both palettes and both languages in one SVG, chosen from the reader's system colour preference and interface language. An image cannot see GitHub's page theme, so a dark system with a light GitHub still gets a dark card; set `theme` or `lang` explicitly for a fixed look.
 
-Colours are CSS custom properties in an inline `<style>` element, so the SVG needs CSS variable support. Renderers that ignore `var()` (cairosvg, for example) drop every text element — title, axis labels and legend — leaving only curves and grid, and neither `lang` nor `theme` avoids this. Use a CSS-capable renderer for PDF or PNG pipelines.
+Colours are CSS custom properties in an inline `<style>` element, so the SVG needs CSS variable support. Renderers that ignore `var()` (cairosvg, for example) drop every text element — title, axis labels and legend — leaving only curves and grid, and neither `lang` nor `theme` avoids this. Use a CSS-capable renderer, or the PNG route above, for PDF or image pipelines.
 
 `rating` is the weighted average from 1 to 5, `ratings` the number of ratings. Downloads use the left axis, rating metrics the right; with both rating metrics selected, paired right-axis labels show average / count. Lines follow real observation timestamps, rating gaps stay disconnected, and a range starting after the first observation carries the last known value to the boundary — correct for cumulative metrics.
 
@@ -57,6 +60,7 @@ Colours are CSS custom properties in an inline `<style>` element, so the SVG nee
 /api/chart/OWNER/REPO?metrics=downloads&range=30d&area=true
 /api/chart/OWNER/REPO?metrics=downloads,rating&theme=dark&width=960&height=480
 /api/chart/OWNER/REPO?metrics=rating,ratings&start=2026-08-01&end=2026-10-01&lang=zh
+/api/png/chart/OWNER/REPO?metrics=downloads&range=90d&theme=dark
 ```
 
 The SVG is intentionally static: no scripts, external resources, cookies or runtime browser dependencies, so GitHub's image proxy can cache and render it safely.

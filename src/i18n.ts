@@ -24,8 +24,8 @@ export const ERRORS = {
     zh: { message: '请求方法不允许', hint: '请使用 GET 请求此 SVG 接口。' },
   },
   invalidChartUrl: {
-    en: { message: 'Invalid chart URL', hint: 'Use /api/chart/{owner}/{repo}?metrics=downloads,rating,ratings' },
-    zh: { message: '图表链接无效', hint: '请使用 /api/chart/{owner}/{repo}?metrics=downloads,rating,ratings。' },
+    en: { message: 'Invalid chart URL', hint: 'Use /api/chart/{owner}/{repo} or /api/png/chart/{owner}/{repo}?metrics=downloads,rating,ratings' },
+    zh: { message: '图表链接无效', hint: '请使用 /api/chart/{owner}/{repo} 或 /api/png/chart/{owner}/{repo}?metrics=downloads,rating,ratings。' },
   },
   unknownParameter: {
     en: { message: 'Unknown parameter: {{name}}', hint: 'Use metrics, theme, width, height, range, start, end, lang, title, legend, grid, area or updated.' },

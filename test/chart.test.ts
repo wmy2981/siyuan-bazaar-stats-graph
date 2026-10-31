@@ -266,6 +266,19 @@ describe('renderChart', () => {
     expect(svg).not.toContain('<path data-metric="rating"');
   });
 
+  it('omits the card, halos and rings for a transparent raster', () => {
+    const svg = renderChart([
+      { t: time(1), d: 10, a: 4 },
+      { t: time(2), d: 20, a: 5 },
+    ], options({ metrics: ['downloads', 'rating'], area: true, transparent: true }));
+    expect(svg).not.toContain('<rect width="100%"');
+    expect(svg).not.toContain('data-halo');
+    expect(svg).not.toContain('#f5f8fb');
+    expect(svg).toContain('<path');
+    expect(svg).toContain('data-metric="downloads"');
+    expect(svg).toContain('data-endpoint="downloads"');
+  });
+
   it('keeps a plot and compact legends at narrow dimensions', () => {
     const svg = renderChart([
       { t: time(1), d: 1, a: 2, c: 1 },

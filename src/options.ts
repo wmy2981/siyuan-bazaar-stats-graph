@@ -67,7 +67,8 @@ export function parseOptions(url: URL): ChartOptions & { start?: number; end?: n
     title: bool('title', true), legend: bool('legend', true), grid: bool('grid', true), area: bool('area', false),
     updated: bool('updated', true),
     start: start ?? (days ? rangeEnd - days * 86400 : undefined), end,
-    repo: `${url.pathname.split('/')[3]}/${url.pathname.split('/')[4]}`,
+    // Both /api/chart and /api/png/chart end with the owner/repo pair.
+    repo: url.pathname.split('/').filter(Boolean).slice(-2).join('/'),
   }
 }
 

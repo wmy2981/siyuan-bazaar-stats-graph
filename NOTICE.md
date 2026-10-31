@@ -12,7 +12,7 @@ under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) per its
 
 Read at request time from the upstream package JSON, raw snapshots as fallback. Only
 `downloads`, `rating.average` and `rating.count` reach the chart, plus `owner/repo`
-and the latest date in the title; no other field is displayed.
+and the newest observation time shown as the update line; no other field is displayed.
 
 ### Modifications
 
@@ -22,6 +22,15 @@ and the latest date in the title; no other field is displayed.
   line rather than being interpolated, except in the snapshot fallback, where a
   missing rating carries the previous value forward.
 - A window starting after the first observation repeats the last earlier value.
+- The update line reports the newest upstream observation in UTC, to the second.
+
+## Fonts
+
+The PNG route rasterises text with glyph subsets of
+[Noto Sans](https://fonts.google.com/noto/specimen/Noto+Sans) and
+[Noto Sans SC](https://fonts.google.com/noto/specimen/Noto+Sans+SC), fetched at
+request time from Google Fonts and cached at the edge. Both are licensed under the
+SIL Open Font License 1.1; no font binary is stored in this repository.
 
 ### Re-publishing charts
 

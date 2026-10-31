@@ -37,6 +37,12 @@ export interface ChartOptions {
   lastUpdated?: number;
   lang: ChartLanguage;
   repo: string;
+  /**
+   * Internal only, never a query parameter: omit the palette background card and
+   * the background-coloured decorations so a rasteriser can emit a genuinely
+   * transparent image. See src/png.ts.
+   */
+  transparent?: boolean;
 }
 
 /** A metric value resolved from a ChartPoint, tagged with its index in the history. */
@@ -387,7 +393,9 @@ function renderChartDocument(points: ChartPoint[], options: ChartOptions, lang: 
     `<desc id="chart-desc">${escapeXml(lang === 'zh' ? '仓库指标时间折线图' : 'Repository metrics over time')}</desc>`,
     ...(auto ? [AUTO_STYLE] : []),
   ];
-  svg.push(`<rect width="100%" height="100%" rx="8" ${paint('background', 'fill')}/>`);
+  // A transparent chart skips the background card entirely: the plot, grid and
+  // labels paint directly onto whatever the reader places the PNG over.
+  if (!options.transparent) svg.push(`<rect width="100%" height="100%" rx="8" ${paint('background', 'fill')}/>`);
 
   if (options.title) {
     const room = width - left - 14;
@@ -445,13 +453,14 @@ function renderChartDocument(points: ChartPoint[], options: ChartOptions, lang: 
    *
    * Drawing all halos first is what makes the halo anti-occlusion rather than
    * destructive: a later metric's halo cannot paint over an earlier metric's
-   * line, because no line exists yet at this point in the document. The dotted
-   * ratings line gets no halo: those dots must read as plain solid marks rather
-   * than sit on a background-coloured band.
+   * line, because no line exists yet at this point in the document. A
+   * transparent chart has no background colour to halo with, so it skips them,
+   * and the dotted ratings line gets none either: those dots must read as plain
+   * solid marks rather than sit on a background-coloured band.
    */
   for (const metric of metrics) {
     const color = COLORS[metric];
-    const halo = !(dashRatings && metric === 'ratings');
+    const halo = !options.transparent && !(dashRatings && metric === 'ratings');
     for (const { points: segment } of series.get(metric)!) {
       if (segment.length <= 1) continue;
       const coordinates = segment.map((point) => `${num(x(point.t))},${num(y(metric, point.value))}`).join(' ');
@@ -481,7 +490,9 @@ function renderChartDocument(points: ChartPoint[], options: ChartOptions, lang: 
       }
     }
     const last = segments.at(-1)?.points.at(-1);
-    if (last) svg.push(`<circle data-endpoint="${metric}" cx="${num(x(last.t))}" cy="${num(y(metric, last.value))}" r="3.5" fill="${color}" ${paint('background', 'stroke', 'chart-ring')} stroke-width="1.5"/>`);
+    // The endpoint ring is stroked in the background colour to lift the dot off
+    // the line; a transparent chart has no background, so it omits the ring.
+    if (last) svg.push(`<circle data-endpoint="${metric}" cx="${num(x(last.t))}" cy="${num(y(metric, last.value))}" r="3.5" fill="${color}"${options.transparent ? '' : ` ${paint('background', 'stroke', 'chart-ring')} stroke-width="1.5"`}/>`);
   }
 
   if (!all.length) {

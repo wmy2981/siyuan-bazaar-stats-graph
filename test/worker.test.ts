@@ -6,6 +6,8 @@ const detail = { name: 'sample', repo: 'owner/repo', current: { d: 42 }, history
 
 // Stub the Worker-only modules so the entry point can run under Node.
 vi.mock('cloudflare:workers', () => ({ waitUntil: (promise: Promise<unknown>) => promise.catch(() => {}) }))
+// The real rasteriser needs wasm and Google Fonts; its output is a stub here.
+vi.mock('../src/png', () => ({ svgToPng: vi.fn(async () => new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])) }))
 vi.stubGlobal('caches', { default: { match: vi.fn(async () => undefined), put: vi.fn(async () => undefined) } })
 vi.spyOn(globalThis, 'fetch').mockImplementation(async input => {
   const url = String(input)
@@ -14,6 +16,7 @@ vi.spyOn(globalThis, 'fetch').mockImplementation(async input => {
   return new Response('not found', { status: 404 })
 })
 const { default: worker } = await import('../src/index')
+const { svgToPng } = await import('../src/png')
 
 describe('chart builder page', () => {
   it.each(['/', '/index.html'])('serves the interactive demo at %s', async path => {
@@ -153,6 +156,67 @@ describe('SVG Worker', () => {
     const response = await worker.fetch(new Request('https://charts.test/api/chart/owner/repo', { method: 'POST' }))
     expect(response.headers.get('x-chart-status')).toBe('error')
     expect(await response.text()).toContain('Method not allowed')
+  })
+})
+
+describe('PNG Worker', () => {
+  const pngSignature = [0x89, 0x50, 0x4e, 0x47]
+  const lastSvg = () => String(vi.mocked(svgToPng).mock.calls.at(-1)?.[0])
+  beforeEach(() => vi.mocked(svgToPng).mockClear())
+
+  it('rasterises a transparent, single-language light chart', async () => {
+    const response = await worker.fetch(new Request('https://charts.test/api/png/chart/owner/repo?metrics=downloads,rating,ratings'))
+    expect(response.headers.get('content-type')).toBe('image/png')
+    expect(response.headers.get('x-chart-status')).toBe('ok')
+    expect(response.headers.get('cache-control')).toContain('s-maxage=1800')
+    const bytes = new Uint8Array(await response.arrayBuffer())
+    expect([...bytes.slice(0, 4)]).toEqual(pngSignature)
+    const svg = lastSvg()
+    // The route still resolves the owner/repo pair for the title.
+    expect(svg).toContain('>owner/repo</text>')
+    // No card, halos or background-coloured rings: the PNG must stay transparent.
+    expect(svg).not.toContain('<rect width="100%"')
+    expect(svg).not.toContain('data-halo')
+    expect(svg).not.toContain('#f5f8fb')
+    // A raster cannot follow the reader, so auto resolves to English and light.
+    expect(svg).not.toContain('<switch>')
+    expect(svg).not.toContain('<style>')
+    expect(svg).toContain('data-lang="en"')
+    expect(svg).toContain('Downloads (L) 42')
+    expect(svg).toContain('data-metric="downloads"')
+  })
+
+  it('honours an explicit dark theme and Chinese language', async () => {
+    const response = await worker.fetch(new Request('https://charts.test/api/png/chart/owner/repo?theme=dark&lang=zh'))
+    expect(response.headers.get('content-type')).toBe('image/png')
+    const svg = lastSvg()
+    expect(svg).toContain('data-lang="zh"')
+    expect(svg).toContain('下载量 (左轴) 42')
+    expect(svg).toContain('fill="#d5e2ed"')
+    expect(svg).not.toContain('<switch>')
+  })
+
+  it('answers PNG errors as PNG and falls back to SVG when rasterising fails', async () => {
+    const invalid = await worker.fetch(new Request('https://charts.test/api/png/chart/owner'))
+    expect(invalid.headers.get('content-type')).toBe('image/png')
+    expect(invalid.headers.get('x-chart-status')).toBe('error')
+    expect(invalid.headers.get('cache-control')).toContain('s-maxage=60')
+    // The error card keeps its opaque background so the message stays readable.
+    expect(lastSvg()).toContain('<rect width="100%"')
+    expect(lastSvg()).toContain('Invalid chart URL')
+
+    vi.mocked(svgToPng).mockRejectedValueOnce(new Error('no wasm'))
+    const failed = await worker.fetch(new Request('https://charts.test/api/png/chart/nobody/nothing?lang=zh'))
+    expect(failed.headers.get('content-type')).toContain('image/svg+xml')
+    expect(failed.headers.get('x-chart-status')).toBe('error')
+    expect(await failed.text()).toContain('未找到集市包')
+  })
+
+  it('does not serve the old /api/png/{owner}/{repo} path', async () => {
+    const response = await worker.fetch(new Request('https://charts.test/api/png/owner/repo'))
+    expect(response.headers.get('content-type')).toBe('image/png')
+    expect(response.headers.get('x-chart-status')).toBe('error')
+    expect(lastSvg()).toContain('Invalid chart URL')
   })
 })
 
