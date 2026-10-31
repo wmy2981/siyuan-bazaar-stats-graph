@@ -13,7 +13,7 @@ const metrics: Metric[] = ['downloads', 'rating', 'ratings']
 const ranges: Record<string, number | undefined> = { '30d': 30, '90d': 90, '1y': 365, all: undefined }
 
 export function parseOptions(url: URL): ChartOptions & { start?: number; end?: number } {
-  const allowed = new Set(['metrics', 'theme', 'lang', 'width', 'height', 'title', 'legend', 'grid', 'area', 'range', 'start', 'end'])
+  const allowed = new Set(['metrics', 'theme', 'lang', 'width', 'height', 'title', 'legend', 'grid', 'area', 'updated', 'range', 'start', 'end'])
   for (const name of url.searchParams.keys()) if (!allowed.has(name)) throw new ChartError('unknownParameter', { name })
   /** Read a parameter once; repetition is rejected instead of silently ignored. */
   const one = (name: string) => {
@@ -65,6 +65,7 @@ export function parseOptions(url: URL): ChartOptions & { start?: number; end?: n
     width: number('width', 800, 320, 1600), height: number('height', 400, 200, 1000),
     theme: theme as Theme, metrics: selected as Metric[], lang: lang as ChartLanguage,
     title: bool('title', true), legend: bool('legend', true), grid: bool('grid', true), area: bool('area', false),
+    updated: bool('updated', true),
     start: start ?? (days ? rangeEnd - days * 86400 : undefined), end,
     repo: `${url.pathname.split('/')[3]}/${url.pathname.split('/')[4]}`,
   }

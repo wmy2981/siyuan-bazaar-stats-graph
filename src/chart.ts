@@ -27,6 +27,14 @@ export interface ChartOptions {
   legend: boolean;
   grid: boolean;
   area: boolean;
+  /** Whether to show the upstream last-updated line; omitted means true. */
+  updated?: boolean;
+  /**
+   * Upstream last-observation time in Unix milliseconds, taken from the full
+   * history rather than the rendered slice. Omitted falls back to the newest
+   * rendered point so direct callers keep working.
+   */
+  lastUpdated?: number;
   lang: ChartLanguage;
   repo: string;
 }
@@ -45,6 +53,10 @@ const LEGEND_LINE_WIDTH = 12;
 const LEGEND_TEXT_OFFSET = 18;
 const LEGEND_ITEM_GAP = 22;
 const LEGEND_ROW_HEIGHT = 15;
+/** Last-updated line geometry: small muted text in the bottom-right corner. */
+const UPDATED_FONT_SIZE = 9;
+const UPDATED_ROW_HEIGHT = 15;
+const UPDATED_GAP = 12;
 /** One colour per metric; the legend reuses these exact values. */
 const COLORS: Record<Metric, string> = {
   downloads: '#0f9f8f',
@@ -59,10 +71,10 @@ const LABELS: Record<Metric, { en: string; zh: string }> = {
 };
 
 /** Theme palettes. The automatic theme emits both and switches with prefers-color-scheme. */
-type PaletteKey = 'background' | 'foreground' | 'title' | 'grid';
+type PaletteKey = 'background' | 'foreground' | 'title' | 'grid' | 'muted';
 const PALETTE: Record<'light' | 'dark', Record<PaletteKey, string>> = {
-  light: { background: '#f5f8fb', foreground: '#506579', title: '#17324d', grid: '#dce5ed' },
-  dark: { background: '#18232f', foreground: '#d5e2ed', title: '#dcebf7', grid: '#344453' },
+  light: { background: '#f5f8fb', foreground: '#506579', title: '#17324d', grid: '#dce5ed', muted: '#8a99a8' },
+  dark: { background: '#18232f', foreground: '#d5e2ed', title: '#dcebf7', grid: '#344453', muted: '#8fa0ae' },
 };
 /** Both themes ship in one document, so the cached SVG follows the reader's colour preference. */
 /**
@@ -70,7 +82,7 @@ const PALETTE: Record<'light' | 'dark', Record<PaletteKey, string>> = {
  * switched with a prefers-color-scheme media query, so one cached document can
  * serve readers in either appearance without a second request.
  */
-const AUTO_STYLE = `<style>svg{--chart-background:${PALETTE.light.background};--chart-foreground:${PALETTE.light.foreground};--chart-title:${PALETTE.light.title};--chart-grid:${PALETTE.light.grid}}.chart-background{fill:var(--chart-background)}.chart-foreground{fill:var(--chart-foreground)}.chart-title{fill:var(--chart-title)}.chart-grid{stroke:var(--chart-grid)}.chart-ring{stroke:var(--chart-background)}@media (prefers-color-scheme:dark){svg{--chart-background:${PALETTE.dark.background};--chart-foreground:${PALETTE.dark.foreground};--chart-title:${PALETTE.dark.title};--chart-grid:${PALETTE.dark.grid}}}</style>`;
+const AUTO_STYLE = `<style>svg{--chart-background:${PALETTE.light.background};--chart-foreground:${PALETTE.light.foreground};--chart-title:${PALETTE.light.title};--chart-grid:${PALETTE.light.grid};--chart-muted:${PALETTE.light.muted}}.chart-background{fill:var(--chart-background)}.chart-foreground{fill:var(--chart-foreground)}.chart-title{fill:var(--chart-title)}.chart-grid{stroke:var(--chart-grid)}.chart-muted{fill:var(--chart-muted)}.chart-ring{stroke:var(--chart-background)}@media (prefers-color-scheme:dark){svg{--chart-background:${PALETTE.dark.background};--chart-foreground:${PALETTE.dark.foreground};--chart-title:${PALETTE.dark.title};--chart-grid:${PALETTE.dark.grid};--chart-muted:${PALETTE.dark.muted}}}</style>`;
 
 /** Escape text before it is interpolated into SVG markup. */
 const escapeXml = (value: unknown): string => String(value)
@@ -83,6 +95,8 @@ const escapeXml = (value: unknown): string => String(value)
 const num = (value: number): string => String(Math.round(value * 100) / 100);
 /** Render timestamps as UTC dates, matching how the upstream data is bucketed. */
 const date = (timestamp: number): string => new Date(timestamp).toISOString().slice(0, 10);
+/** Render a timestamp as a full UTC date-time, precise to the second. */
+const dateTime = (timestamp: number): string => `${new Date(timestamp).toISOString().slice(0, 19).replace('T', ' ')} UTC`;
 /** Axis and legend values: integers stay bare, fractions keep two decimals. */
 const formatValue = (value: number): string => Number.isInteger(value)
   ? String(value)
@@ -297,7 +311,25 @@ function renderChartDocument(points: ChartPoint[], options: ChartOptions, lang: 
     ? legendRows(metrics, width - left - right, lang,
       new Map(metrics.map((metric) => [metric, series.get(metric)?.at(-1)?.points.at(-1)])))
     : [];
-  const bottom = 27 + Math.max(0, legend.length - 1) * LEGEND_ROW_HEIGHT + (legend.length ? 14 : 0);
+  /**
+   * The last-updated line reports the upstream data's newest observation, not
+   * the newest rendered point and not the render time. It shares the last
+   * legend row, right-aligned, when that row leaves room for it; otherwise it
+   * drops below the legend and the bottom inset grows by one row so the plot,
+   * axis labels and legend all shift up instead of colliding.
+   */
+  const lastUpdated = Number.isFinite(options.lastUpdated) ? options.lastUpdated! : maxTime;
+  const showUpdated = options.updated !== false && Number.isFinite(lastUpdated);
+  const updatedText = showUpdated
+    ? (lang === 'zh' ? `最后更新：${dateTime(lastUpdated!)}` : `Last updated: ${dateTime(lastUpdated!)}`)
+    : '';
+  const lastLegendRow = legend.at(-1) ?? [];
+  const lastLegendWidth = lastLegendRow.reduce((sum, item) => sum + LEGEND_TEXT_OFFSET + item.width, 0)
+    + Math.max(0, lastLegendRow.length - 1) * LEGEND_ITEM_GAP;
+  const updatedBelow = showUpdated
+    && (!legend.length || lastLegendWidth + UPDATED_GAP + measureText(updatedText, UPDATED_FONT_SIZE) > width - left - right);
+  const bottom = 27 + Math.max(0, legend.length - 1) * LEGEND_ROW_HEIGHT + (legend.length ? 14 : 0)
+    + (updatedBelow ? UPDATED_ROW_HEIGHT : 0);
   const plotWidth = Math.max(1, width - left - right);
   const plotHeight = Math.max(1, height - titleSpace - bottom);
   const x = (t: number): number => hasTime && maxTime !== minTime
@@ -335,10 +367,8 @@ function renderChartDocument(points: ChartPoint[], options: ChartOptions, lang: 
   svg.push(`<rect width="100%" height="100%" rx="8" ${paint('background', 'fill')}/>`);
 
   if (options.title) {
-    const suffix = hasTime ? ` · ${date(maxTime)}` : '';
     const room = width - left - 14;
-    const full = `${options.repo}${suffix}`;
-    const title = fitText(full, room, 15) === full ? full : fitText(options.repo, room, 15);
+    const title = fitText(options.repo, room, 15);
     svg.push(`<text x="${num(left)}" y="23" ${paint('title', 'fill')} font-size="15" font-weight="600">${escapeXml(title)}</text>`);
   }
 
@@ -416,7 +446,7 @@ function renderChartDocument(points: ChartPoint[], options: ChartOptions, lang: 
   }
   for (let row = 0; row < legend.length; row++) {
     let xx = left;
-    const yy = height - (legend.length - row - 1) * LEGEND_ROW_HEIGHT - 6;
+    const yy = height - (updatedBelow ? UPDATED_ROW_HEIGHT : 0) - (legend.length - row - 1) * LEGEND_ROW_HEIGHT - 6;
     for (const { metric, label, width: labelWidth } of legend[row]) {
       const textX = xx + LEGEND_TEXT_OFFSET;
       const available = Math.max(1, width - right - textX - 2);
@@ -424,6 +454,12 @@ function renderChartDocument(points: ChartPoint[], options: ChartOptions, lang: 
       svg.push(`<text x="${num(textX)}" y="${num(yy)}" ${paint('foreground', 'fill')} font-size="10">${escapeXml(fitText(label, available, 10))}</text>`);
       xx += LEGEND_TEXT_OFFSET + labelWidth + LEGEND_ITEM_GAP;
     }
+  }
+  if (showUpdated) {
+    // Bottom-right, sharing the last legend row when it fits and sitting on its
+    // own row below the legend otherwise. The muted palette colour keeps it in
+    // the same visual family as the axis labels.
+    svg.push(`<text data-updated="true" x="${num(width - right)}" y="${num(height - 6)}" text-anchor="end" ${paint('muted', 'fill')} font-size="${UPDATED_FONT_SIZE}">${escapeXml(updatedText)}</text>`);
   }
   if (!bodyOnly) svg.push('</svg>');
   return svg.join('');

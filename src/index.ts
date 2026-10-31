@@ -87,7 +87,11 @@ export default {
         options.end === undefined ? undefined : options.end * 1000,
       )
       if (!history.length) throw new ChartError('noHistoryInRange', {}, 404)
-      const chart = renderChart(history, options)
+      // The last-updated line uses the full upstream history, not the sliced
+      // range being rendered and not the time this chart was generated.
+      const lastUpdated = pkg.history.reduce((latest, point) =>
+        Number.isFinite(point.t) && point.t > latest ? point.t : latest, Number.NEGATIVE_INFINITY)
+      const chart = renderChart(history, { ...options, lastUpdated: Number.isFinite(lastUpdated) ? lastUpdated : undefined })
       const response = svg(chart)
       response.headers.set('X-Fetched-At', new Date().toISOString())
       if (pkg.stale) response.headers.set('X-Data-Stale', 'true')

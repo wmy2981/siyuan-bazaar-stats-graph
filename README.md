@@ -42,6 +42,7 @@ The response is always a self-contained `image/svg+xml` document, including inpu
 | `legend` | `true`, `false` | `true` |
 | `grid` | `true`, `false` | `true` |
 | `area` | `true`, `false`; fill below downloads | `false` |
+| `updated` | `true`, `false`; show the upstream update time | `true` |
 | `lang` | `en`, `zh`, `auto` | `auto` |
 
 `theme=auto` and `lang=auto` ship both palettes and both languages in one SVG, chosen from the reader's system colour preference and interface language. An image cannot see GitHub's page theme, so a dark system with a light GitHub still gets a dark card; set `theme` or `lang` explicitly for a fixed look.
@@ -63,7 +64,7 @@ The SVG is intentionally static: no scripts, external resources, cookies or runt
 ## Data
 
 - Package mappings and the catalog come from the official SiYuan bazaar indexes.
-- History comes from upstream package detail JSON, with raw monthly snapshots as fallback. Observations are change-only, collected every 30 minutes at best since August 2026, and GitHub scheduling may delay them by hours. Charts show the latest observation date.
+- History comes from upstream package detail JSON, with raw monthly snapshots as fallback. Observations are change-only, collected every 30 minutes at best since August 2026, and GitHub scheduling may delay them by hours. Charts show the upstream data's last update time — the newest observation, in UTC to the second — as small muted text at the bottom right, or below the legend when the chart is too narrow; hide it with `updated=false`. The title carries no date.
 - Timestamps are the bazaar's `publishedAt`, not the collection time, so spacing is uneven and a quiet period has no point.
 - Delisted packages leave the upstream artifacts, so their charts report `packageNotFound`.
 - Artifacts carry `schema`; any other value is shown as an error rather than read with possibly changed field meanings. The upstream [data contract](https://github.com/TCOTC/siyuan-bazaar-stats/blob/main/docs/data-contract.md) freezes fields, URLs and snapshot semantics.

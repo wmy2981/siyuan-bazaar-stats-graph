@@ -11,6 +11,9 @@ describe('chart parameters', () => {
     expect(parseOptions(url('lang=auto')).lang).toBe('auto')
     expect(parseOptions(url('lang=zh')).lang).toBe('zh')
     expect(parseOptions(url('lang=en')).lang).toBe('en')
+    expect(parseOptions(url()).updated).toBe(true)
+    expect(parseOptions(url('updated=false')).updated).toBe(false)
+    expect(parseOptions(url('updated=true')).updated).toBe(true)
   })
   it.each(['metrics=nope', 'theme=blue', 'lang=fr', 'width=319', 'height=1001', 'range=7d', 'start=2026-02-30', 'start=2026-10-02&end=2026-10-01', 'foo=bar', 'area=yes'])('rejects invalid input: %s', query => {
     expect(() => parseOptions(url(query))).toThrow()

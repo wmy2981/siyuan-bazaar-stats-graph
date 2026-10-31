@@ -137,16 +137,47 @@ describe('renderChart', () => {
     expect(missing).toContain('No data for the selected metrics');
   });
 
-  it('shows the latest UTC date and four to six real time-scale dates', () => {
+  it('keeps the title date-free and shows the upstream update time to the second', () => {
     const svg = renderChart([
       { t: time(1), d: 1 },
       { t: time(10), d: 2 },
-    ], options({ repo: 'x/y' }));
-    expect(svg).toContain('x/y · 2024-01-10');
+    ], options({ repo: 'x/y', lastUpdated: Date.UTC(2024, 0, 11, 6, 7, 8) }));
+    expect(svg).toContain('>x/y</text>');
+    expect(svg).not.toContain('x/y ·');
+    expect(svg).toMatch(/<text data-updated="true"[^>]*>Last updated: 2024-01-11 06:07:08 UTC<\/text>/);
     const dates = [...svg.matchAll(/font-size="10">(2024-01-\d{2})<\/text>/g)].map((match) => match[1]);
     expect(dates.length).toBe(6);
     expect(dates[0]).toBe('2024-01-01');
     expect(dates.at(-1)).toBe('2024-01-10');
+  });
+
+  it('localizes the update time and can hide it', () => {
+    const zh = renderChart([{ t: time(1), d: 1 }], options({ lang: 'zh', lastUpdated: Date.UTC(2024, 0, 1, 23, 59, 59) }));
+    expect(zh).toContain('最后更新：2024-01-01 23:59:59 UTC');
+    const hidden = renderChart([{ t: time(1), d: 1 }], options({ updated: false }));
+    expect(hidden).not.toContain('data-updated');
+    // The auto document carries one update line per language branch.
+    const auto = renderChart([{ t: time(1), d: 1 }], options({ lang: 'auto', lastUpdated: time(1) }));
+    expect(auto.match(/data-updated="true"/g)).toHaveLength(2);
+  });
+
+  it('moves the update time below the legend when the width cannot hold both', () => {
+    const points = [
+      { t: time(1), d: 1, a: 2, c: 1 },
+      { t: time(2), d: 2, a: 3, c: 2 },
+    ];
+    const wide = renderChart(points, options({ width: 800, lastUpdated: time(2) }));
+    const narrow = renderChart(points, options({ width: 320, height: 200, metrics: ['downloads', 'rating', 'ratings'], lastUpdated: time(2) }));
+    const baseline = (svg: string) => Number(/<line x1="[\d.]+" y1="([\d.]+)"/.exec(svg)?.[1]);
+    const legendY = (svg: string) => Number(/<text x="[\d.]+" y="([\d.]+)"[^>]*>Downloads/.exec(svg)?.[1]);
+    const updatedY = (svg: string) => Number(/<text data-updated="true"[^>]*y="([\d.]+)"/.exec(svg)?.[1]);
+    // Wide: the update line shares the last legend row.
+    expect(updatedY(wide)).toBe(legendY(wide));
+    // Narrow: it drops below the legend, and the plot still sits above both.
+    expect(updatedY(narrow)).toBeGreaterThan(legendY(narrow));
+    expect(updatedY(narrow)).toBe(194);
+    expect(legendY(narrow)).toBeGreaterThan(baseline(narrow));
+    expect(narrow).toContain('data-metric="ratings"');
   });
 
   it('limits every sampled series to 500 points and keeps endpoints and extrema', () => {
@@ -203,7 +234,9 @@ describe('renderChart', () => {
     const baseline = Number(/<line x1="[\d.]+" y1="([\d.]+)"/.exec(svg)?.[1]);
     const firstLegend = Number(/<text x="[\d.]+" y="([\d.]+)"[^>]*>Downloads/.exec(svg)?.[1]);
     expect(baseline).toBeLessThan(firstLegend);
-    expect(200 - baseline).toBeLessThanOrEqual(71);
+    // The plot keeps at least 60px; the update line adds one row below the legend.
+    expect(baseline - 50).toBeGreaterThanOrEqual(60);
+    expect(200 - baseline).toBeLessThanOrEqual(86);
     const dates = [...svg.matchAll(/font-size="10">(2024-[^<]+)<\/text>/g)].map(match => match[1]);
     expect(dates.length).toBeLessThanOrEqual(3);
   });

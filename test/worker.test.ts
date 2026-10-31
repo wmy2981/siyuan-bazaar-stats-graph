@@ -54,7 +54,10 @@ describe('SVG Worker', () => {
     expect(response.headers.get('content-type')).toContain('image/svg+xml')
     expect(response.headers.get('x-chart-status')).toBe('ok')
     expect(response.headers.get('cache-control')).toContain('s-maxage=1800')
-    expect(body).toContain('owner/repo · 2026-09-25')
+    expect(body).toContain('>owner/repo</text>')
+    expect(body).not.toContain('owner/repo ·')
+    expect(body).toContain('Last updated: 2026-09-25 00:00:00 UTC')
+    expect(body).toContain('最后更新：2026-09-25 00:00:00 UTC')
     expect(body).toContain('data-metric="downloads"')
     expect(body).toContain('data-lang="auto"')
     expect(body).toContain('systemLanguage=')
@@ -86,11 +89,16 @@ describe('SVG Worker', () => {
     expect(body).toContain('该时间范围内没有历史数据')
   })
   it('filters custom date ranges using UTC timestamps', async () => {
-    const response = await worker.fetch(new Request('https://charts.test/api/chart/owner/repo?metrics=downloads&start=2026-09-01&end=2026-09-30&lang=en'))
+    // The range ends before the newest observation, so the update line must come
+    // from the full history instead of the rendered slice.
+    const response = await worker.fetch(new Request('https://charts.test/api/chart/owner/repo?metrics=downloads&start=2026-08-01&end=2026-09-10&lang=en'))
     const body = await response.text()
     expect(response.headers.get('x-chart-status')).toBe('ok')
-    expect(body).toContain('data-metric="downloads"')
-    expect(body).toContain('owner/repo · 2026-09-25')
+    expect(body).toContain('data-endpoint="downloads"')
+    expect(body).toContain('Last updated: 2026-09-25 00:00:00 UTC')
+    expect(body).toContain('2026-08')
+    // The excluded newest observation appears only in the update line.
+    expect(body.match(/2026-09-25/g)).toHaveLength(1)
   })
   it('reports a cache hit in X-Cache', async () => {
     const stored = new Response('<svg xmlns="http://www.w3.org/2000/svg" width="1" height="1"/>', {

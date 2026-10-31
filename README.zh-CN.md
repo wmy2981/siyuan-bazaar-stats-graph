@@ -42,6 +42,7 @@ GET /api/chart/{owner}/{repo}
 | `legend` | `true`、`false` | `true` |
 | `grid` | `true`、`false` | `true` |
 | `area` | `true`、`false`；填充下载量曲线下方区域 | `false` |
+| `updated` | `true`、`false`；显示上游数据最后更新时间 | `true` |
 | `lang` | `en`、`zh`、`auto` | `auto` |
 
 `theme=auto` 与 `lang=auto` 让同一份 SVG 自带两套配色和中英文标签，分别按读者的系统深浅色偏好与界面语言选择。图片拿不到 GitHub 页面主题，系统深色配浅色 GitHub 时仍会显示深色卡片；需要固定外观时显式指定 `theme` 或 `lang`。
@@ -63,7 +64,7 @@ SVG 刻意保持静态：没有脚本、外部资源、Cookie 或运行时的浏
 ## 数据
 
 - 包仓库映射与目录来自思源集市官方索引。
-- 历史数值来自上游包详情 JSON，每月原始快照作为兜底。观测只在数值变化时记录，最快每 30 分钟一次，起始于 2026 年 8 月，GitHub 定时调度可能延迟数小时。图表显示最新观测日期。
+- 历史数值来自上游包详情 JSON，每月原始快照作为兜底。观测只在数值变化时记录，最快每 30 分钟一次，起始于 2026 年 8 月，GitHub 定时调度可能延迟数小时。图表在右下角以小字显示上游数据的最后更新时间（即最新观测时间，UTC、精确到秒），图表太窄放不下时改到图例下方；可用 `updated=false` 隐藏。标题不再带日期。
 - 时间戳取自集市的 `publishedAt`，不是采集时刻，因此各点间隔不均匀，数值无变化的时段也没有对应的点。
 - 已下架的包会从上游产物中消失，这类图表返回 `packageNotFound`。
 - 上游产物带 `schema`，取值不同会直接报错，而不是按字段含义未变来读取；字段、地址与快照语义由上游[数据契约](https://github.com/TCOTC/siyuan-bazaar-stats/blob/main/docs/data-contract.md)冻结。

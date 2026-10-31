@@ -28,8 +28,8 @@ export const ERRORS = {
     zh: { message: '图表链接无效', hint: '请使用 /api/chart/{owner}/{repo}?metrics=downloads,rating,ratings。' },
   },
   unknownParameter: {
-    en: { message: 'Unknown parameter: {{name}}', hint: 'Use metrics, theme, width, height, range, start, end, lang, title, legend, grid or area.' },
-    zh: { message: '未知参数：{{name}}', hint: '请使用 metrics、theme、width、height、range、start、end、lang、title、legend、grid 或 area。' },
+    en: { message: 'Unknown parameter: {{name}}', hint: 'Use metrics, theme, width, height, range, start, end, lang, title, legend, grid, area or updated.' },
+    zh: { message: '未知参数：{{name}}', hint: '请使用 metrics、theme、width、height、range、start、end、lang、title、legend、grid、area 或 updated。' },
   },
   repeatedParameter: {
     en: { message: 'Invalid {{name}}', hint: 'Provide one {{name}} parameter.' },
