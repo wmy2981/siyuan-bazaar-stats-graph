@@ -63,6 +63,26 @@ const COLORS: Record<Metric, string> = {
   rating: '#8264c6',
   ratings: '#d48a17',
 };
+/**
+ * Dotted style for the ratings count line when it shares the right axis with the
+ * rating average.
+ *
+ * A near-zero dash with round caps renders as a row of small, even dots instead
+ * of long butt-capped dashes, which looked hand-drawn and hid the line
+ * underneath for long stretches. Dots repeat every 6.5 units, so where the two
+ * right-axis lines coincide the solid rating line stays visible in the gaps and
+ * the orange dots stay visible on top. The legend swatch reuses this exact
+ * pattern and cap so legend and line always match.
+ */
+const RATINGS_DASHARRAY = '0.5 6';
+/**
+ * Width of the background-coloured halo drawn under every line.
+ *
+ * Halos are emitted for all series before any line, so a halo never erases
+ * another metric's line; it only lifts the lines off the grid and the downloads
+ * area fill, keeping crossing or coinciding lines crisp in both themes.
+ */
+const HALO_STROKE_WIDTH = 5;
 /** Axis labels; both languages are inlined because auto ships one document. */
 const LABELS: Record<Metric, { en: string; zh: string }> = {
   downloads: { en: 'Downloads', zh: '下载量' },
@@ -271,7 +291,10 @@ function renderChartDocument(points: ChartPoint[], options: ChartOptions, lang: 
   const width = Math.max(1, Number.isFinite(options.width) ? options.width : 800);
   const height = Math.max(1, Number.isFinite(options.height) ? options.height : 400);
   const metrics = [...new Set(options.metrics)].filter((metric): metric is Metric => metric in COLORS);
-  /** Rating and ratings share the right axis, so the count line is dashed to stay readable where they coincide. */
+  /**
+   * Rating and ratings share the right axis, so the count line is dotted to stay
+   * readable where the two coincide.
+   */
   const dashRatings = metrics.includes('rating') && metrics.includes('ratings');
   /** Upstream short keys used in the history payload. */
   const field: Record<Metric, keyof ChartPoint> = { downloads: 'd', rating: 'a', ratings: 'c' };
@@ -417,23 +440,44 @@ function renderChartDocument(points: ChartPoint[], options: ChartOptions, lang: 
     }
   }
 
+  /**
+   * Underlay pass: area fills and halos for every series, before any line.
+   *
+   * Drawing all halos first is what makes the halo anti-occlusion rather than
+   * destructive: a later metric's halo cannot paint over an earlier metric's
+   * line, because no line exists yet at this point in the document. The dotted
+   * ratings line gets no halo: those dots must read as plain solid marks rather
+   * than sit on a background-coloured band.
+   */
+  for (const metric of metrics) {
+    const color = COLORS[metric];
+    const halo = !(dashRatings && metric === 'ratings');
+    for (const { points: segment } of series.get(metric)!) {
+      if (segment.length <= 1) continue;
+      const coordinates = segment.map((point) => `${num(x(point.t))},${num(y(metric, point.value))}`).join(' ');
+      if (metric === 'downloads' && options.area) {
+        const baseline = num(y(metric, 0));
+        svg.push(`<path d="M ${coordinates.replaceAll(' ', ' L ')} L ${num(x(segment[segment.length - 1].t))},${baseline} L ${num(x(segment[0].t))},${baseline} Z" fill="${color}" opacity="0.13"/>`);
+      }
+      if (halo) {
+        svg.push(`<polyline data-halo="${metric}" points="${coordinates}" fill="none" ${paint('background', 'stroke', 'chart-ring')} stroke-width="${HALO_STROKE_WIDTH}" stroke-linejoin="round" stroke-linecap="round"/>`);
+      }
+    }
+  }
+
   for (const metric of metrics) {
     const segments = series.get(metric)!;
     const color = COLORS[metric];
     for (const { points: segment, start } of segments) {
       const coordinates = segment.map((point) => `${num(x(point.t))},${num(y(metric, point.value))}`).join(' ');
-      if (metric === 'downloads' && options.area && segment.length > 1) {
-        const baseline = num(y(metric, 0));
-        svg.push(`<path d="M ${coordinates.replaceAll(' ', ' L ')} L ${num(x(segment[segment.length - 1].t))},${baseline} L ${num(x(segment[0].t))},${baseline} Z" fill="${color}" opacity="0.13"/>`);
-      }
       if (segment.length === 1) {
         const point = segment[0];
         svg.push(`<circle cx="${num(x(point.t))}" cy="${num(y(metric, point.value))}" r="2.5" fill="${color}"/>`);
       } else if (segment.length > 1) {
-        // Round caps would extend each dash by half a stroke width and swallow the
-      // gap, so the dashed count line uses butt caps and a wider pattern.
-      const dashed = dashRatings && metric === 'ratings';
-      svg.push(`<polyline data-metric="${metric}" data-start="${start}" points="${coordinates}" fill="none" stroke="${color}" stroke-width="2"${dashed ? ' stroke-dasharray="12 9"' : ''} stroke-linejoin="round" stroke-linecap="${dashed ? 'butt' : 'round'}"/>`);
+        // Round caps are the style here, not a hazard: the near-zero dash turns
+        // each dash into a neat dot, and the solid lines use round caps as before.
+        const dotted = dashRatings && metric === 'ratings';
+        svg.push(`<polyline data-metric="${metric}" data-start="${start}" points="${coordinates}" fill="none" stroke="${color}" stroke-width="2"${dotted ? ` stroke-dasharray="${RATINGS_DASHARRAY}"` : ''} stroke-linejoin="round" stroke-linecap="round"/>`);
       }
     }
     const last = segments.at(-1)?.points.at(-1);
@@ -450,7 +494,7 @@ function renderChartDocument(points: ChartPoint[], options: ChartOptions, lang: 
     for (const { metric, label, width: labelWidth } of legend[row]) {
       const textX = xx + LEGEND_TEXT_OFFSET;
       const available = Math.max(1, width - right - textX - 2);
-      svg.push(`<line data-legend="${metric}" x1="${num(xx)}" y1="${num(yy - 3)}" x2="${num(xx + LEGEND_LINE_WIDTH)}" y2="${num(yy - 3)}" stroke="${COLORS[metric]}" stroke-width="2"${dashRatings && metric === 'ratings' ? ' stroke-dasharray="4 3"' : ''}/>`);
+      svg.push(`<line data-legend="${metric}" x1="${num(xx)}" y1="${num(yy - 3)}" x2="${num(xx + LEGEND_LINE_WIDTH)}" y2="${num(yy - 3)}" stroke="${COLORS[metric]}" stroke-width="2"${dashRatings && metric === 'ratings' ? ` stroke-dasharray="${RATINGS_DASHARRAY}" stroke-linecap="round"` : ''}/>`);
       svg.push(`<text x="${num(textX)}" y="${num(yy)}" ${paint('foreground', 'fill')} font-size="10">${escapeXml(fitText(label, available, 10))}</text>`);
       xx += LEGEND_TEXT_OFFSET + labelWidth + LEGEND_ITEM_GAP;
     }
