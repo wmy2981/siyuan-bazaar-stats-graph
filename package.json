@@ -20,6 +20,7 @@
     "@cloudflare/vite-plugin": "beta",
     "@types/node": "^24.10.0",
     "cf": "^1.0.0-beta.21",
+    "swagger-ui-dist": "^5.34.1",
     "typescript": "^7.0.2",
     "vite": "^8.3.0",
     "vitest": "^4.0.0",

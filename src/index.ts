@@ -1,16 +1,20 @@
 /**
  * Worker entry point: serves the chart builder at /, SVG charts at
- * /api/chart/{owner}/{repo}, PNG charts at /api/png/chart/{owner}/{repo} and the
- * OpenAPI description at /openapi.yaml.
+ * /api/chart/{owner}/{repo}, PNG charts at /api/png/chart/{owner}/{repo}, the
+ * OpenAPI description at /openapi.yaml and its Swagger UI at /docs.
  * SVG routes always answer expected errors with SVG; the PNG route answers with
  * a rasterised error chart instead.
  */
 import { waitUntil } from 'cloudflare:workers'
+import swaggerBundle from 'swagger-ui-dist/swagger-ui-bundle.js?raw'
+import swaggerCss from 'swagger-ui-dist/swagger-ui.css?raw'
 import { renderAutoErrorChart, renderChart, renderErrorChart, type ChartOptions } from './chart'
 import demoHtml from './demo/demo.html?raw'
 import demoScript from './demo/demo.js?raw'
 import demoStyles from './demo/demo.css?raw'
 import { ChartError, loadPackage } from './data'
+import docsHtml from './docs/swagger.html?raw'
+import docsScript from './docs/swagger.js?raw'
 import type { ResolvedLanguage } from './fonts'
 import { localizeError } from './i18n'
 import openapiSpec from './openapi.yaml?raw'
@@ -33,6 +37,23 @@ const DEMO_SECURITY = {
 const demoPage = demoHtml
   .replace('/*__STYLE__*/', () => demoStyles)
   .replace('/*__SCRIPT__*/', () => demoScript)
+/**
+ * Swagger UI runs from this origin only, so no third party has to be trusted.
+ * `connect-src` also names the production host because "Try it out" follows the
+ * server selected in the reference, which is production even when /docs is
+ * previewed locally.
+ */
+const DOCS_SECURITY = {
+  'X-Content-Type-Options': 'nosniff',
+  'Referrer-Policy': 'strict-origin-when-cross-origin',
+  'Content-Security-Policy': "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self' https://siyuan-bazaar-stats-graph.sr1.cc.cd; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+}
+/** Swagger UI files, inlined at build time and served next to the reference page. */
+const docsAssets: Record<string, { body: string; type: string }> = {
+  '/docs/swagger-ui.css': { body: swaggerCss, type: 'text/css; charset=utf-8' },
+  '/docs/swagger-ui-bundle.js': { body: swaggerBundle, type: 'text/javascript; charset=utf-8' },
+  '/docs/swagger-init.js': { body: docsScript, type: 'text/javascript; charset=utf-8' },
+}
 
 /**
  * Shared cache and status headers for SVG and PNG responses.
@@ -69,10 +90,14 @@ function demo(request: Request): Response {
   })
 }
 
-/** Static documents such as the OpenAPI description; HEAD keeps the same headers. */
-function document(request: Request, type: string, body: string): Response {
+/**
+ * Static documents and pages: the OpenAPI description, the API reference and its
+ * assets. They answer GET and HEAD only, and share one cacheable response shape.
+ */
+function document(request: Request, type: string, body: string, security: Record<string, string> = {}, maxAge = 300): Response {
+  if (request.method !== 'GET' && request.method !== 'HEAD') return new Response(null, { status: 405, headers: { Allow: 'GET, HEAD' } })
   return new Response(request.method === 'HEAD' ? null : body, {
-    headers: { 'X-Content-Type-Options': 'nosniff', 'Content-Type': type, 'Cache-Control': 'public, max-age=300', Vary: 'Accept-Encoding' },
+    headers: { 'X-Content-Type-Options': 'nosniff', ...security, 'Content-Type': type, 'Cache-Control': `public, max-age=${maxAge}`, Vary: 'Accept-Encoding' },
   })
 }
 
@@ -112,10 +137,12 @@ export default {
     /** PNG paths answer rasterised errors; every other path keeps the SVG contract. */
     const isPng = url.pathname.startsWith('/api/png/')
     // The OpenAPI description documents the chart API and is a plain static document.
-    if (url.pathname === '/openapi.yaml') {
-      if (request.method !== 'GET' && request.method !== 'HEAD') return new Response(null, { status: 405, headers: { Allow: 'GET, HEAD' } })
-      return document(request, 'application/yaml; charset=utf-8', openapiSpec)
-    }
+    if (url.pathname === '/openapi.yaml') return document(request, 'application/yaml; charset=utf-8', openapiSpec)
+    // The API reference is a page over that description plus its Swagger UI assets.
+    if (url.pathname === '/docs' || url.pathname === '/docs/') return document(request, 'text/html; charset=utf-8', docsHtml, DOCS_SECURITY)
+    const asset = docsAssets[url.pathname]
+    // Assets are rebuilt on every deploy, so they are cached for an hour only.
+    if (asset) return document(request, asset.type, asset.body, DOCS_SECURITY, 3600)
     // Only GET and HEAD are meaningful; anything else renders a visible error.
     if (request.method !== 'GET' && request.method !== 'HEAD') {
       return isPng ? pngError(url, new ChartError('methodNotAllowed')) : svg(errorChart(url, new ChartError('methodNotAllowed')), 200, true)

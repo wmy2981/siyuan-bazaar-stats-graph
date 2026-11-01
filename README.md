@@ -73,6 +73,8 @@ The SVG is intentionally static: no scripts, external resources, cookies or runt
 
 [`GET /openapi.yaml`](https://siyuan-bazaar-stats-graph.sr1.cc.cd/openapi.yaml) serves the OpenAPI 3.1 description of both chart endpoints: parameters and their defaults, the status and cache headers, error semantics and examples. Use it to generate clients or feed tooling; the README only summarises what it documents.
 
+The [API reference](https://siyuan-bazaar-stats-graph.sr1.cc.cd/docs) renders that same document with Swagger UI, so every parameter can be filled in and the endpoints called from the browser. Both the reference and its Swagger UI assets are served by this Worker; nothing is loaded from a third party.
+
 ## Data
 
 - Package mappings and the catalog come from the official SiYuan bazaar indexes.

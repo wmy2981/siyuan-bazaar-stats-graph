@@ -73,6 +73,8 @@ SVG 刻意保持静态：没有脚本、外部资源、Cookie 或运行时的浏
 
 [`GET /openapi.yaml`](https://siyuan-bazaar-stats-graph.sr1.cc.cd/openapi.yaml) 提供两个图表接口的 OpenAPI 3.1 描述：参数与默认值、状态与缓存响应头、错误语义以及示例。可据此生成客户端或供工具消费；README 只概述其中已文档化的内容。
 
+[接口文档](https://siyuan-bazaar-stats-graph.sr1.cc.cd/docs) 用 Swagger UI 渲染同一份描述，可填参数并在浏览器里直接调用接口。文档页面及其 Swagger UI 资源都由本 Worker 提供，不从任何第三方加载。
+
 ## 数据
 
 - 包仓库映射与目录来自思源集市官方索引。

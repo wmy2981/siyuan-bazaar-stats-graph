@@ -70,6 +70,56 @@ describe('OpenAPI description', () => {
   })
 })
 
+describe('API reference', () => {
+  it.each(['/docs', '/docs/'])('serves the Swagger UI page at %s', async path => {
+    const response = await worker.fetch(new Request(`https://charts.test${path}`))
+    const body = await response.text()
+    expect(response.headers.get('content-type')).toBe('text/html; charset=utf-8')
+    const csp = response.headers.get('content-security-policy')!
+    expect(csp).toContain("script-src 'self'")
+    expect(csp).toContain("connect-src 'self' https://siyuan-bazaar-stats-graph.sr1.cc.cd")
+    expect(csp).toContain("img-src 'self' data:")
+    // Nothing from a third party, and no inline script, so the CSP needs no exception.
+    expect(csp).not.toContain("script-src 'self' 'unsafe-inline'")
+    expect(body).toContain('id="swagger-ui"')
+    expect(body).toContain('<link rel="stylesheet" href="/docs/swagger-ui.css">')
+    expect(body).toContain('<script src="/docs/swagger-ui-bundle.js"></script>')
+    expect(body).toContain('<script src="/docs/swagger-init.js"></script>')
+    expect(body).not.toMatch(/<script(?![^>]*\bsrc=)[^>]*>/)
+  })
+  it('serves the bundled Swagger UI assets', async () => {
+    for (const [path, type] of [
+      ['/docs/swagger-ui.css', 'text/css'],
+      ['/docs/swagger-ui-bundle.js', 'text/javascript'],
+      ['/docs/swagger-init.js', 'text/javascript'],
+    ] as const) {
+      const response = await worker.fetch(new Request(`https://charts.test${path}`))
+      expect(response.headers.get('content-type')).toBe(`${type}; charset=utf-8`)
+      expect(response.headers.get('cache-control')).toContain('max-age=3600')
+      const body = await response.text()
+      expect(body.length).toBeGreaterThan(200)
+      expect(body).not.toContain('/*__')
+    }
+  })
+  it('renders the description this worker serves', async () => {
+    const init = await (await worker.fetch(new Request('https://charts.test/docs/swagger-init.js'))).text()
+    expect(init).toContain("url: '/openapi.yaml'")
+    const bundle = await (await worker.fetch(new Request('https://charts.test/docs/swagger-ui-bundle.js'))).text()
+    expect(bundle).toContain('SwaggerUIBundle')
+    expect((await worker.fetch(new Request('https://charts.test/openapi.yaml'))).headers.get('content-type')).toContain('application/yaml')
+  })
+  it('supports HEAD and rejects other methods on the reference routes', async () => {
+    const head = await worker.fetch(new Request('https://charts.test/docs', { method: 'HEAD' }))
+    expect(head.status).toBe(200)
+    expect(await head.text()).toBe('')
+    for (const path of ['/docs', '/docs/swagger-ui.css', '/docs/swagger-init.js']) {
+      const post = await worker.fetch(new Request(`https://charts.test${path}`, { method: 'POST' }))
+      expect(post.status).toBe(405)
+      expect(post.headers.get('allow')).toBe('GET, HEAD')
+    }
+  })
+})
+
 describe('SVG Worker', () => {
   beforeEach(() => vi.mocked(caches.default.match).mockClear())
   it('returns a real, self-contained SVG with Unix timestamps converted', async () => {
