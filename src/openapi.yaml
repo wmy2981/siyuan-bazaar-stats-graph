@@ -401,7 +401,10 @@ components:
       schema:
         type: string
     X-Fetched-At:
-      description: ISO 8601 timestamp of the moment the chart was rendered. Present on charts rendered by the request, absent on cache hits.
+      description: |
+        ISO 8601 timestamp of the moment the served chart was rendered. A chart rendered for this
+        request carries the current time and a cache hit replays the time the cached copy was
+        rendered. Absent on error cards.
       schema:
         type: string
         format: date-time
