@@ -252,7 +252,9 @@ export async function loadPackage(repo: string): Promise<PackageHistory> {
 async function loadSnapshots(name: string): Promise<ChartPoint[]> {
   const now = new Date()
   const months: string[] = []
-  // History began in August 2026. Include the prior month for range baselines.
+  // Upstream history began in August 2026, so the first monthly file is 2026-08
+  // (month index 7); a month that upstream has not published yet answers 404 and
+  // is skipped below.
   for (let year = 2026, month = 7; year < now.getUTCFullYear() || (year === now.getUTCFullYear() && month <= now.getUTCMonth());) {
     months.push(`${year}-${String(month + 1).padStart(2, '0')}`)
     if (++month === 12) {
