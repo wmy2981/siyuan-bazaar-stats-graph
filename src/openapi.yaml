@@ -222,7 +222,7 @@ components:
       schema:
         type: string
         default: downloads
-        pattern: '^(downloads|rating|ratings)(,(downloads|rating|ratings))*$'
+        pattern: '^\s*(downloads|rating|ratings)\s*(,\s*(downloads|rating|ratings)\s*)*$'
       example: downloads,rating,ratings
     range:
       name: range
