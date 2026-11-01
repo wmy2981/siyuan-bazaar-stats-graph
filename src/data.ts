@@ -63,7 +63,8 @@ interface PackageDetail {
   repo: string
   displayName?: string
   current: Stats
-  history: ChartPoint[]
+  /** Detail rows also carry the histogram, which rating() prefers over a and c. */
+  history: (Stats & { t: number })[]
 }
 
 /**
