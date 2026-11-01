@@ -255,6 +255,9 @@ describe('SVG Worker', () => {
       const response = await worker.fetch(new Request('https://charts.test/api/chart/owner/repo'))
       expect(response.headers.get('x-chart-status')).toBe('stale')
       expect(response.headers.get('x-cache')).toBe('STALE')
+      // The one-day copy it came from must not advertise that lifetime.
+      expect(response.headers.get('cache-control')).toContain('s-maxage=60')
+      expect(response.headers.get('cdn-cache-control')).toBe('max-age=60')
       expect(await response.text()).toContain('<svg')
     } finally {
       vi.useRealTimers()

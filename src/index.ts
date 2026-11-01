@@ -217,6 +217,9 @@ export default {
         stale.headers.set('X-Chart-Status', 'stale')
         stale.headers.set('X-Cache', 'STALE')
         stale.headers.set('Cache-Control', 'public, max-age=60, s-maxage=60')
+        // The stored copy carries a one-day edge lifetime, which must not leak out:
+        // a replayed stale chart is as short-lived as an error card.
+        stale.headers.set('CDN-Cache-Control', 'max-age=60')
         return stale
       }
       const error = cause instanceof ChartError ? cause : new ChartError('renderFailed')
