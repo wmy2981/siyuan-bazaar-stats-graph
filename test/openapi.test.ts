@@ -13,7 +13,10 @@ const spec = parse(text)
 /** Every $ref in the document, resolved against the document itself. */
 function resolve(ref: string): unknown {
   expect(ref.startsWith('#/')).toBe(true)
-  return ref.slice(2).split('/').reduce<Record<string, unknown> | undefined>((node, key) => node?.[key] as Record<string, unknown>, spec)
+  return ref
+    .slice(2)
+    .split('/')
+    .reduce<Record<string, unknown> | undefined>((node, key) => node?.[key] as Record<string, unknown>, spec)
 }
 
 /** A parameter as the document defines it, after following its $ref. */
@@ -27,7 +30,7 @@ interface Parameter {
 
 /** Follow a parameter's $ref; the shared components are the only source of definitions. */
 function parameter(entry: { $ref?: string; name?: string }): Parameter {
-  return entry.$ref ? resolve(entry.$ref) as Parameter : entry as Parameter
+  return entry.$ref ? (resolve(entry.$ref) as Parameter) : (entry as Parameter)
 }
 
 const operations = {
@@ -57,7 +60,13 @@ describe('OpenAPI document', () => {
   it('documents the status and cache headers the worker sends', () => {
     const headers = spec.components.headers
     expect(Object.keys(headers).sort()).toEqual([
-      'Access-Control-Allow-Origin', 'CDN-Cache-Control', 'Cache-Control', 'X-Cache', 'X-Chart-Status', 'X-Data-Stale', 'X-Fetched-At',
+      'Access-Control-Allow-Origin',
+      'CDN-Cache-Control',
+      'Cache-Control',
+      'X-Cache',
+      'X-Chart-Status',
+      'X-Data-Stale',
+      'X-Fetched-At',
     ])
     expect(headers['X-Chart-Status'].schema.enum).toEqual(['ok', 'error', 'stale'])
     expect(headers['X-Cache'].schema.enum).toEqual(['MISS', 'HIT', 'STALE'])
@@ -67,7 +76,7 @@ describe('OpenAPI document', () => {
   })
 
   it('resolves every $ref inside the document', () => {
-    const refs = [...text.matchAll(/\$ref: '([^']+)'/g)].map(match => match[1]!)
+    const refs = [...text.matchAll(/\$ref: '([^']+)'/g)].map((match) => match[1]!)
     expect(refs.length).toBeGreaterThan(0)
     for (const ref of refs) expect(resolve(ref)).toBeDefined()
   })
@@ -76,19 +85,39 @@ describe('OpenAPI document', () => {
     for (const operation of Object.values(operations) as { parameters: { $ref?: string; name?: string }[] }[]) {
       const documented = operation.parameters
         .map(parameter)
-        .filter(entry => entry.in === 'query')
-        .map(entry => entry.name === 'theme' ? 'theme' : entry.name)
+        .filter((entry) => entry.in === 'query')
+        .map((entry) => (entry.name === 'theme' ? 'theme' : entry.name))
       expect(documented.sort()).toEqual([...queryParameters].sort())
     }
-    expect(operations.svg.parameters.map(parameter).filter(entry => entry.in === 'path').map(entry => entry.name)).toEqual(['owner', 'repo'])
-    expect(operations.png.parameters.map(parameter).filter(entry => entry.in === 'path').map(entry => entry.name)).toEqual(['owner', 'repo'])
+    expect(
+      operations.svg.parameters
+        .map(parameter)
+        .filter((entry) => entry.in === 'path')
+        .map((entry) => entry.name),
+    ).toEqual(['owner', 'repo'])
+    expect(
+      operations.png.parameters
+        .map(parameter)
+        .filter((entry) => entry.in === 'path')
+        .map((entry) => entry.name),
+    ).toEqual(['owner', 'repo'])
   })
 
   it('accepts every documented parameter with a value taken from the description', () => {
     const samples: Record<(typeof queryParameters)[number], string> = {
-      metrics: 'downloads,rating', theme: 'light', lang: 'zh', width: '640', height: '320',
-      title: 'false', legend: 'false', grid: 'false', area: 'true', updated: 'false',
-      range: '30d', start: '2026-08-01', end: '2026-09-01',
+      metrics: 'downloads,rating',
+      theme: 'light',
+      lang: 'zh',
+      width: '640',
+      height: '320',
+      title: 'false',
+      legend: 'false',
+      grid: 'false',
+      area: 'true',
+      updated: 'false',
+      range: '30d',
+      start: '2026-08-01',
+      end: '2026-09-01',
     }
     for (const name of queryParameters) {
       const url = new URL(`https://charts.test/api/chart/owner/repo?${name}=${samples[name]}`)
@@ -99,7 +128,7 @@ describe('OpenAPI document', () => {
 
   it('matches the enum, range and default values the parser enforces', () => {
     const byName = (operation: { parameters: { $ref?: string; name?: string }[] }, name: string) =>
-      operation.parameters.map(parameter).find(entry => entry.name === name)!.schema
+      operation.parameters.map(parameter).find((entry) => entry.name === name)!.schema
     expect(byName(operations.svg, 'theme').enum).toEqual(['light', 'dark', 'auto', 'transparent'])
     expect(byName(operations.png, 'theme').enum).toEqual(['light', 'dark', 'transparent'])
     expect(byName(operations.svg, 'theme').default).toBe('auto')
@@ -107,10 +136,19 @@ describe('OpenAPI document', () => {
     expect(byName(operations.svg, 'lang').enum).toEqual(['en', 'zh', 'auto'])
     expect(byName(operations.svg, 'metrics').default).toBe('downloads')
     expect(byName(operations.svg, 'range').enum).toEqual(['30d', '90d', '1y', 'all'])
-    for (const [name, min, max, fallback] of [['width', 320, 1600, 800], ['height', 200, 1000, 400]] as const) {
+    for (const [name, min, max, fallback] of [
+      ['width', 320, 1600, 800],
+      ['height', 200, 1000, 400],
+    ] as const) {
       expect(byName(operations.svg, name)).toMatchObject({ type: 'integer', minimum: min, maximum: max, default: fallback })
     }
-    for (const [name, fallback] of [['title', true], ['legend', true], ['grid', true], ['area', false], ['updated', true]] as const) {
+    for (const [name, fallback] of [
+      ['title', true],
+      ['legend', true],
+      ['grid', true],
+      ['area', false],
+      ['updated', true],
+    ] as const) {
       expect(byName(operations.svg, name)).toMatchObject({ type: 'boolean', default: fallback })
     }
   })
@@ -118,38 +156,45 @@ describe('OpenAPI document', () => {
   it('marks only the path parameters as required', () => {
     for (const operation of Object.values(operations) as { parameters: { $ref?: string; name?: string }[] }[]) {
       for (const entry of operation.parameters.map(parameter)) {
-        expect({ name: entry.name, required: entry.required ?? false })
-          .toEqual({ name: entry.name, required: entry.in === 'path' })
+        expect({ name: entry.name, required: entry.required ?? false }).toEqual({ name: entry.name, required: entry.in === 'path' })
       }
     }
   })
 
   it('applies the documented defaults to a bare request', () => {
-    const documented = (name: string) =>
-      operations.svg.parameters.map(parameter).find((entry: Parameter) => entry.name === name)!.schema.default
+    const documented = (name: string) => operations.svg.parameters.map(parameter).find((entry: Parameter) => entry.name === name)!.schema.default
     const bare = parseOptions(new URL('https://charts.test/api/chart/owner/repo'))
     expect(bare.metrics).toEqual([documented('metrics')])
     expect(bare.theme).toBe(documented('theme'))
     expect(bare.lang).toBe(documented('lang'))
     expect([bare.width, bare.height]).toEqual([documented('width'), documented('height')])
-    expect([bare.title, bare.legend, bare.grid, bare.area, bare.updated])
-      .toEqual([documented('title'), documented('legend'), documented('grid'), documented('area'), documented('updated')])
+    expect([bare.title, bare.legend, bare.grid, bare.area, bare.updated]).toEqual([
+      documented('title'),
+      documented('legend'),
+      documented('grid'),
+      documented('area'),
+      documented('updated'),
+    ])
     // `range=all` covers the whole history, so a bare request carries no date bounds.
     expect(documented('range')).toBe('all')
     expect([bare.start, bare.end]).toEqual([undefined, undefined])
-    expect(parseOptions(new URL('https://charts.test/api/png/chart/owner/repo'), true).theme)
-      .toBe(operations.png.parameters.map(parameter).find((entry: Parameter) => entry.name === 'theme')!.schema.default)
+    expect(parseOptions(new URL('https://charts.test/api/png/chart/owner/repo'), true).theme).toBe(
+      operations.png.parameters.map(parameter).find((entry: Parameter) => entry.name === 'theme')!.schema.default,
+    )
   })
 
   it('answers a request built only from the documented defaults', () => {
-    for (const [path, png] of [['/api/chart/{owner}/{repo}', false], ['/api/png/chart/{owner}/{repo}', true]] as const) {
+    for (const [path, png] of [
+      ['/api/chart/{owner}/{repo}', false],
+      ['/api/png/chart/{owner}/{repo}', true],
+    ] as const) {
       const params: Parameter[] = spec.paths[path].get.parameters.map(parameter)
-      const example = (name: string) => params.find(entry => entry.name === name)!.example!
+      const example = (name: string) => params.find((entry) => entry.name === name)!.example!
       // Swagger UI prefills a query parameter with its example, else with its default, and
       // sends what is shown, so those values have to be accepted together.
       const query = params
-        .filter(entry => entry.in === 'query')
-        .map(entry => [entry.name, entry.schema.default ?? entry.example] as const)
+        .filter((entry) => entry.in === 'query')
+        .map((entry) => [entry.name, entry.schema.default ?? entry.example] as const)
         .filter(([, value]) => value !== undefined)
         .map(([name, value]) => `${name}=${value}`)
         .join('&')

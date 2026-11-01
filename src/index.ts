@@ -26,17 +26,20 @@ const slug = '([A-Za-z0-9](?:[A-Za-z0-9-]{0,38}))/([A-Za-z0-9_.-]{1,100})'
 const svgRoute = new RegExp(`^/api/chart/${slug}/?$`)
 const pngRoute = new RegExp(`^/api/png/chart/${slug}/?$`)
 /** Charts are inert images, so their policy can stay maximally strict. */
-const SECURITY = { 'X-Content-Type-Options': 'nosniff', 'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline'; sandbox", 'Access-Control-Allow-Origin': '*' }
+const SECURITY = {
+  'X-Content-Type-Options': 'nosniff',
+  'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline'; sandbox",
+  'Access-Control-Allow-Origin': '*',
+}
 /** The builder needs inline style and script plus Cloudflare's analytics beacon. */
 const DEMO_SECURITY = {
   'X-Content-Type-Options': 'nosniff',
   'Referrer-Policy': 'strict-origin-when-cross-origin',
-  'Content-Security-Policy': "default-src 'none'; img-src 'self' data: blob:; style-src 'unsafe-inline'; script-src 'unsafe-inline' https://static.cloudflareinsights.com; connect-src 'self' https://cloudflareinsights.com; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+  'Content-Security-Policy':
+    "default-src 'none'; img-src 'self' data: blob:; style-src 'unsafe-inline'; script-src 'unsafe-inline' https://static.cloudflareinsights.com; connect-src 'self' https://cloudflareinsights.com; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
 }
 /** Inline the stylesheet and script so the page is a single cacheable response. */
-const demoPage = demoHtml
-  .replace('/*__STYLE__*/', () => demoStyles)
-  .replace('/*__SCRIPT__*/', () => demoScript)
+const demoPage = demoHtml.replace('/*__STYLE__*/', () => demoStyles).replace('/*__SCRIPT__*/', () => demoScript)
 /**
  * Swagger UI runs from this origin only, so no third party has to be trusted.
  * `connect-src` also names the production host because "Try it out" follows the
@@ -46,7 +49,8 @@ const demoPage = demoHtml
 const DOCS_SECURITY = {
   'X-Content-Type-Options': 'nosniff',
   'Referrer-Policy': 'strict-origin-when-cross-origin',
-  'Content-Security-Policy': "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self' https://siyuan-bazaar-stats-graph.sr1.cc.cd; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+  'Content-Security-Policy':
+    "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self' https://siyuan-bazaar-stats-graph.sr1.cc.cd; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
 }
 /** Swagger UI files, inlined at build time and served next to the reference page. */
 const docsAssets: Record<string, { body: string; type: string }> = {
@@ -64,7 +68,15 @@ const docsAssets: Record<string, { body: string; type: string }> = {
  */
 function imageHeaders(type: string, error: boolean, cache: string): Record<string, string> {
   const maxAge = error ? 60 : 1800
-  return { ...SECURITY, 'Content-Type': type, 'Cache-Control': `public, max-age=60, s-maxage=${maxAge}`, 'CDN-Cache-Control': `max-age=${maxAge}`, 'X-Chart-Status': error ? 'error' : 'ok', 'X-Cache': cache, Vary: 'Accept-Encoding' }
+  return {
+    ...SECURITY,
+    'Content-Type': type,
+    'Cache-Control': `public, max-age=60, s-maxage=${maxAge}`,
+    'CDN-Cache-Control': `max-age=${maxAge}`,
+    'X-Chart-Status': error ? 'error' : 'ok',
+    'X-Cache': cache,
+    Vary: 'Accept-Encoding',
+  }
 }
 
 function svg(body: string, status = 200, error = false, cache = 'MISS'): Response {
@@ -149,7 +161,10 @@ export default {
     }
     if (url.pathname === '/' || url.pathname === '/index.html') return demo(request)
     if (url.pathname === '/favicon.ico') return new Response(null, { status: 204 })
-    if (url.pathname === '/robots.txt') return new Response(request.method === 'HEAD' ? null : 'User-agent: *\nAllow: /\n', { headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'public, max-age=3600' } })
+    if (url.pathname === '/robots.txt')
+      return new Response(request.method === 'HEAD' ? null : 'User-agent: *\nAllow: /\n', {
+        headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'public, max-age=3600' },
+      })
     // Unknown paths still return an image so an embed fails visibly instead of
     // blank: SVG for chart-shaped paths, a rasterised error for PNG ones.
     const match = (isPng ? pngRoute : svgRoute).exec(url.pathname)
@@ -173,8 +188,7 @@ export default {
       if (!history.length) throw new ChartError('noHistoryInRange', {}, 404)
       // The last-updated line uses the full upstream history, not the sliced
       // range being rendered and not the time this chart was generated.
-      const lastUpdated = pkg.history.reduce((latest, point) =>
-        Number.isFinite(point.t) && point.t > latest ? point.t : latest, Number.NEGATIVE_INFINITY)
+      const lastUpdated = pkg.history.reduce((latest, point) => (Number.isFinite(point.t) && point.t > latest ? point.t : latest), Number.NEGATIVE_INFINITY)
       // A PNG is frozen at render time, so it cannot follow the reader the way
       // the auto SVG does: `lang=auto` resolves to English, and the theme — which
       // parseOptions() already limited to light, dark or transparent — becomes a

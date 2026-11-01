@@ -10,10 +10,16 @@ function element(overrides = {}) {
   const attributes = {}
   return {
     classList: { add: vi.fn(), remove: vi.fn(), toggle: vi.fn() },
-    addEventListener(type, handler) { listeners[type] = handler },
+    addEventListener(type, handler) {
+      listeners[type] = handler
+    },
     listeners,
-    setAttribute: vi.fn((name, value) => { attributes[name] = String(value) }),
-    removeAttribute: vi.fn((name) => { delete attributes[name] }),
+    setAttribute: vi.fn((name, value) => {
+      attributes[name] = String(value)
+    }),
+    removeAttribute: vi.fn((name) => {
+      delete attributes[name]
+    }),
     getAttribute: vi.fn((name) => attributes[name] ?? null),
     querySelectorAll: vi.fn(() => []),
     hidden: false,
@@ -31,8 +37,12 @@ function switchOption({ dataset = {}, left = 0, width = 30 }) {
   const attributes = {}
   return element({
     dataset,
-    setAttribute: vi.fn((name, value) => { attributes[name] = String(value) }),
-    removeAttribute: vi.fn((name) => { delete attributes[name] }),
+    setAttribute: vi.fn((name, value) => {
+      attributes[name] = String(value)
+    }),
+    removeAttribute: vi.fn((name) => {
+      delete attributes[name]
+    }),
     getAttribute: vi.fn((name) => attributes[name] ?? null),
     getBoundingClientRect: () => ({ left, top: 0, width, height: 28, right: left + width, bottom: 28 }),
   })
@@ -51,12 +61,12 @@ function switchGroup(left, items) {
       has: (name) => classes.has(name),
     },
     addEventListener(type, handler, capture = false) {
-      (listeners[`${type}:${Boolean(capture)}`] ??= []).push(handler)
+      ;(listeners[`${type}:${Boolean(capture)}`] ??= []).push(handler)
     },
     prepend: vi.fn(),
     getBoundingClientRect: () => ({ left, top: 0, width: 200, height: 30, right: left + 200, bottom: 30 }),
     setPointerCapture: vi.fn(),
-    querySelectorAll: (selector) => selector === '.segment' ? items : [],
+    querySelectorAll: (selector) => (selector === '.segment' ? items : []),
     fire(type, event, capture = false) {
       for (const handler of listeners[`${type}:${Boolean(capture)}`] ?? []) handler(event)
     },
@@ -70,12 +80,31 @@ function loadDemo(fetch, switches = null) {
   const range = element({ checked: true, value: '30d' })
   const theme = element({ checked: true, value: 'auto' })
   const form = element({ elements: { area: { checked: false }, title: { checked: true }, legend: { checked: true }, grid: { checked: true } } })
-  form.querySelectorAll.mockImplementation(selector => selector.includes('metrics') ? [metric] : selector.includes('range') ? [range] : [theme])
-  const nodes = Object.fromEntries([
-    'repo', 'repo-error', 'date-error', 'start', 'end', 'custom-dates', 'lang', 'width', 'height',
-    'chart-preview', 'preview-empty', 'plot-stage', 'plot-endpoint', 'open-chart', 'render-state',
-    'render-label', 'live-status', 'code-url', 'code-html', 'code-markdown',
-  ].map(id => [`#${id}`, element()]))
+  form.querySelectorAll.mockImplementation((selector) => (selector.includes('metrics') ? [metric] : selector.includes('range') ? [range] : [theme]))
+  const nodes = Object.fromEntries(
+    [
+      'repo',
+      'repo-error',
+      'date-error',
+      'start',
+      'end',
+      'custom-dates',
+      'lang',
+      'width',
+      'height',
+      'chart-preview',
+      'preview-empty',
+      'plot-stage',
+      'plot-endpoint',
+      'open-chart',
+      'render-state',
+      'render-label',
+      'live-status',
+      'code-url',
+      'code-html',
+      'code-markdown',
+    ].map((id) => [`#${id}`, element()]),
+  )
   nodes['#repo'].value = 'owner/repo'
   nodes['#lang'].value = 'auto'
   nodes['#width'].value = '800'
@@ -105,10 +134,20 @@ function loadDemo(fetch, switches = null) {
     execCommand: vi.fn(() => true),
   }
   const context = {
-    AbortController, Blob, document, Event, fetch, location: { origin: 'https://charts.test' },
-    navigator: { languages: ['en'] }, Response, URL, URLSearchParams,
+    AbortController,
+    Blob,
+    document,
+    Event,
+    fetch,
+    location: { origin: 'https://charts.test' },
+    navigator: { languages: ['en'] },
+    Response,
+    URL,
+    URLSearchParams,
     window: { matchMedia: () => ({ matches: false, addEventListener: vi.fn() }), addEventListener: vi.fn() },
-    localStorage: { setItem: vi.fn() }, setTimeout, clearTimeout,
+    localStorage: { setItem: vi.fn() },
+    setTimeout,
+    clearTimeout,
   }
   vm.runInNewContext(script, context)
   return { nodes, fetch, created, document }
@@ -133,7 +172,11 @@ describe('chart preview status', () => {
   })
 
   it('shows failed when the request cannot load', async () => {
-    const { nodes } = loadDemo(vi.fn(async () => { throw new Error('offline') }))
+    const { nodes } = loadDemo(
+      vi.fn(async () => {
+        throw new Error('offline')
+      }),
+    )
     await vi.waitFor(() => expect(nodes['#render-label'].textContent).toBe('Failed'))
     expect(nodes['#preview-empty'].textContent).toBe('The chart could not be loaded.')
     expect(nodes['#chart-preview'].hidden).toBe(true)
@@ -167,9 +210,10 @@ describe('chart preview status', () => {
 })
 
 describe('sliding switch thumbs', () => {
-  const svg = () => new Response('<svg xmlns="http://www.w3.org/2000/svg"></svg>', {
-    headers: { 'Content-Type': 'image/svg+xml', 'X-Chart-Status': 'ok' },
-  })
+  const svg = () =>
+    new Response('<svg xmlns="http://www.w3.org/2000/svg"></svg>', {
+      headers: { 'Content-Type': 'image/svg+xml', 'X-Chart-Status': 'ok' },
+    })
 
   function themeSwitches() {
     const auto = switchOption({ dataset: { pageThemeMode: 'auto' }, left: 2 })
@@ -181,7 +225,10 @@ describe('sliding switch thumbs', () => {
 
   it('creates one thumb per group and places it over the selection', () => {
     const { items, group } = themeSwitches()
-    const { created } = loadDemo(vi.fn(async () => svg()), { theme: items, language: [], segments: [] })
+    const { created } = loadDemo(
+      vi.fn(async () => svg()),
+      { theme: items, language: [], segments: [] },
+    )
     const thumb = created[0]
     expect(thumb.className).toBe('switch-thumb')
     expect(thumb.getAttribute('aria-hidden')).toBe('true')
@@ -194,7 +241,10 @@ describe('sliding switch thumbs', () => {
 
   it('drags the thumb with the pointer and snaps to the nearest option', () => {
     const { items, group } = themeSwitches()
-    const { created, document } = loadDemo(vi.fn(async () => svg()), { theme: items, language: [], segments: [] })
+    const { created, document } = loadDemo(
+      vi.fn(async () => svg()),
+      { theme: items, language: [], segments: [] },
+    )
     const thumb = created[0]
     const base = { pointerId: 1, isPrimary: true, pointerType: 'mouse', button: 0 }
     group.fire('pointerdown', { ...base, clientX: 10 })
@@ -221,7 +271,7 @@ describe('sliding switch thumbs', () => {
     const allInput = element({ checked: false })
     // Radio semantics: checking one input clears the others, as the browser does.
     const inputs = [rangeInput, allInput]
-    const checked = new Map(inputs.map(input => [input, input.checked]))
+    const checked = new Map(inputs.map((input) => [input, input.checked]))
     for (const input of inputs) {
       Object.defineProperty(input, 'checked', {
         get: () => checked.get(input),
@@ -234,7 +284,10 @@ describe('sliding switch thumbs', () => {
     range.querySelector = () => rangeInput
     all.querySelector = () => allInput
     const group = switchGroup(0, [range, all])
-    const { created } = loadDemo(vi.fn(async () => svg()), { theme: [], language: [], segments: [group] })
+    const { created } = loadDemo(
+      vi.fn(async () => svg()),
+      { theme: [], language: [], segments: [group] },
+    )
     expect(created[0].style.transform).toBe('translate(2px, 0px)')
     const base = { pointerId: 2, isPrimary: true, pointerType: 'touch', button: 0 }
     group.fire('pointerdown', { ...base, clientX: 10 })
@@ -254,7 +307,10 @@ describe('sliding switch thumbs', () => {
 
   it('leaves a plain click and keyboard changes to the native controls', () => {
     const { items, group } = themeSwitches()
-    const { created } = loadDemo(vi.fn(async () => svg()), { theme: items, language: [], segments: [] })
+    const { created } = loadDemo(
+      vi.fn(async () => svg()),
+      { theme: items, language: [], segments: [] },
+    )
     const thumb = created[0]
     const base = { pointerId: 3, isPrimary: true, pointerType: 'mouse', button: 0 }
     group.fire('pointerdown', { ...base, clientX: 10 })
@@ -281,9 +337,10 @@ function plainText(markup: string) {
 }
 
 describe('embed snippets', () => {
-  const svg = () => new Response('<svg xmlns="http://www.w3.org/2000/svg"></svg>', {
-    headers: { 'Content-Type': 'image/svg+xml', 'X-Chart-Status': 'ok' },
-  })
+  const svg = () =>
+    new Response('<svg xmlns="http://www.w3.org/2000/svg"></svg>', {
+      headers: { 'Content-Type': 'image/svg+xml', 'X-Chart-Status': 'ok' },
+    })
 
   it('highlights the HTML snippet without changing the copied text', () => {
     const { nodes } = loadDemo(vi.fn(async () => svg()))
@@ -323,9 +380,16 @@ describe('embed snippets', () => {
   it('uses the GitHub syntax palette in both themes', () => {
     const styles = readFileSync(new URL('../src/demo/demo.css', import.meta.url), 'utf8')
     for (const color of [
-      '--code-tag: #116329;', '--code-attr: #0550ae;', '--code-string: #0a3069;', '--code-punct: #1f2328;',
-      '--code-tag: #7ee787;', '--code-attr: #79c0ff;', '--code-string: #a5d6ff;', '--code-punct: #e6edf3;',
-    ]) expect(styles).toContain(color)
+      '--code-tag: #116329;',
+      '--code-attr: #0550ae;',
+      '--code-string: #0a3069;',
+      '--code-punct: #1f2328;',
+      '--code-tag: #7ee787;',
+      '--code-attr: #79c0ff;',
+      '--code-string: #a5d6ff;',
+      '--code-punct: #e6edf3;',
+    ])
+      expect(styles).toContain(color)
     expect(styles).toMatch(/\.snippet \.tok-url \{\s*color: var\(--code-string\);/)
   })
 })

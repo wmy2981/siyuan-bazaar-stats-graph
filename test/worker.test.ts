@@ -3,14 +3,22 @@ import { readFileSync } from 'node:fs'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const summary = { packages: [{ name: 'sample', repo: 'owner/repo' }] }
-const detail = { name: 'sample', repo: 'owner/repo', current: { d: 42 }, history: [{ t: 1787702400, d: 20 }, { t: 1790294400, d: 42, a: 4.5, c: 2 }] }
+const detail = {
+  name: 'sample',
+  repo: 'owner/repo',
+  current: { d: 42 },
+  history: [
+    { t: 1787702400, d: 20 },
+    { t: 1790294400, d: 42, a: 4.5, c: 2 },
+  ],
+}
 
 // Stub the Worker-only modules so the entry point can run under Node.
 vi.mock('cloudflare:workers', () => ({ waitUntil: (promise: Promise<unknown>) => promise.catch(() => {}) }))
 // The real rasteriser needs wasm and Google Fonts; its output is a stub here.
 vi.mock('../src/png', () => ({ svgToPng: vi.fn(async () => new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])) }))
 vi.stubGlobal('caches', { default: { match: vi.fn(async () => undefined), put: vi.fn(async () => undefined) } })
-vi.spyOn(globalThis, 'fetch').mockImplementation(async input => {
+vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
   const url = String(input)
   if (url.endsWith('/summary.json')) return Response.json(summary)
   if (url.endsWith('/packages/sample.json')) return Response.json(detail)
@@ -20,7 +28,7 @@ const { default: worker } = await import('../src/index')
 const { svgToPng } = await import('../src/png')
 
 describe('chart builder page', () => {
-  it.each(['/', '/index.html'])('serves the interactive demo at %s', async path => {
+  it.each(['/', '/index.html'])('serves the interactive demo at %s', async (path) => {
     const response = await worker.fetch(new Request(`https://charts.test${path}`))
     const body = await response.text()
     expect(response.headers.get('content-type')).toContain('text/html')
@@ -30,7 +38,7 @@ describe('chart builder page', () => {
     expect(body).toContain('id="chart-form"')
     expect(body).toContain('value="wmy2981/ai-title-siyuan"')
     expect(body).toContain('data-copy-key="markdown"')
-    expect(body).toContain('<meta name="color-scheme" content="light dark">')
+    expect(body).toContain('name="color-scheme" content="light dark"')
     expect(body).toContain('data-page-theme-mode="auto"')
     expect(body).toContain('data-page-theme-mode="dark"')
     expect(body).toContain('siyuan-bazaar-page-theme')
@@ -71,7 +79,7 @@ describe('OpenAPI description', () => {
 })
 
 describe('API reference', () => {
-  it.each(['/docs', '/docs/'])('serves the Swagger UI page at %s', async path => {
+  it.each(['/docs', '/docs/'])('serves the Swagger UI page at %s', async (path) => {
     const response = await worker.fetch(new Request(`https://charts.test${path}`))
     const body = await response.text()
     expect(response.headers.get('content-type')).toBe('text/html; charset=utf-8')
@@ -82,7 +90,7 @@ describe('API reference', () => {
     // Nothing from a third party, and no inline script, so the CSP needs no exception.
     expect(csp).not.toContain("script-src 'self' 'unsafe-inline'")
     expect(body).toContain('id="swagger-ui"')
-    expect(body).toContain('<link rel="stylesheet" href="/docs/swagger-ui.css">')
+    expect(body).toContain('rel="stylesheet" href="/docs/swagger-ui.css"')
     expect(body).toContain('<script src="/docs/swagger-ui-bundle.js"></script>')
     expect(body).toContain('<script src="/docs/swagger-init.js"></script>')
     expect(body).not.toMatch(/<script(?![^>]*\bsrc=)[^>]*>/)
@@ -156,13 +164,16 @@ describe('SVG Worker', () => {
     expect(body).not.toContain('data-halo')
     expect(body).toContain('@media (prefers-color-scheme:dark)')
   })
-  it.each(['/api/chart/nope', '/api/chart/owner/repo?metrics=nope', '/api/chart/owner/repo?start=2020-01-01&end=2020-01-02'])('returns visible SVG errors for %s', async path => {
-    const response = await worker.fetch(new Request(`https://charts.test${path}`))
-    expect(response.status).toBe(200)
-    expect(response.headers.get('x-chart-status')).toBe('error')
-    expect(response.headers.get('cache-control')).toContain('s-maxage=60')
-    expect(await response.text()).toContain('<svg')
-  })
+  it.each(['/api/chart/nope', '/api/chart/owner/repo?metrics=nope', '/api/chart/owner/repo?start=2020-01-01&end=2020-01-02'])(
+    'returns visible SVG errors for %s',
+    async (path) => {
+      const response = await worker.fetch(new Request(`https://charts.test${path}`))
+      expect(response.status).toBe(200)
+      expect(response.headers.get('x-chart-status')).toBe('error')
+      expect(response.headers.get('cache-control')).toContain('s-maxage=60')
+      expect(await response.text()).toContain('<svg')
+    },
+  )
   it('localizes an omitted-language error inside the same SVG', async () => {
     const response = await worker.fetch(new Request('https://charts.test/api/chart/owner/repo?start=2020-01-01&end=2020-01-02'))
     const body = await response.text()
@@ -232,13 +243,15 @@ describe('SVG Worker', () => {
         const maxAge = Number(/s-maxage=(\d+)/.exec(response.headers.get('cache-control'))?.[1])
         entries.set((request as Request).url, { response: response.clone(), expiresAt: Date.now() + maxAge * 1000 })
       })
-      vi.mocked(caches.default.match).mockImplementation(async request => {
+      vi.mocked(caches.default.match).mockImplementation(async (request) => {
         const entry = request instanceof Request ? entries.get(request.url) : undefined
         return entry && entry.expiresAt > Date.now() ? entry.response.clone() : undefined
       })
       await worker.fetch(new Request('https://charts.test/api/chart/owner/repo'))
       vi.setSystemTime(Date.now() + 1801_000)
-      vi.mocked(fetch).mockImplementation(async () => { throw new Error('offline') })
+      vi.mocked(fetch).mockImplementation(async () => {
+        throw new Error('offline')
+      })
       const response = await worker.fetch(new Request('https://charts.test/api/chart/owner/repo'))
       expect(response.headers.get('x-chart-status')).toBe('stale')
       expect(response.headers.get('x-cache')).toBe('STALE')
@@ -416,7 +429,7 @@ describe('localized SVG errors', () => {
   })
   it('shows an unsupported schema as a visible error instead of a chart', async () => {
     const implementation = vi.mocked(fetch).getMockImplementation()!
-    vi.mocked(fetch).mockImplementation(async input => {
+    vi.mocked(fetch).mockImplementation(async (input) => {
       const url = String(input)
       if (url.endsWith('/summary.json')) return Response.json(summary)
       if (url.endsWith('/packages/sample.json')) return Response.json({ ...detail, schema: 2 })

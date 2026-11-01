@@ -15,7 +15,18 @@ describe('chart parameters', () => {
     expect(parseOptions(url('updated=false')).updated).toBe(false)
     expect(parseOptions(url('updated=true')).updated).toBe(true)
   })
-  it.each(['metrics=nope', 'theme=blue', 'lang=fr', 'width=319', 'height=1001', 'range=7d', 'start=2026-02-30', 'start=2026-10-02&end=2026-10-01', 'foo=bar', 'area=yes'])('rejects invalid input: %s', query => {
+  it.each([
+    'metrics=nope',
+    'theme=blue',
+    'lang=fr',
+    'width=319',
+    'height=1001',
+    'range=7d',
+    'start=2026-02-30',
+    'start=2026-10-02&end=2026-10-01',
+    'foo=bar',
+    'area=yes',
+  ])('rejects invalid input: %s', (query) => {
     expect(() => parseOptions(url(query))).toThrow()
   })
   it('accepts explicit dates and deduplicates metrics', () => {
@@ -49,17 +60,31 @@ describe('chart parameters', () => {
 })
 
 describe('history slicing', () => {
-  const history = [{ t: 10, d: 1 }, { t: 20, d: 3 }, { t: 30, d: 8 }]
+  const history = [
+    { t: 10, d: 1 },
+    { t: 20, d: 3 },
+    { t: 30, d: 8 },
+  ]
   it('carries the last known value to the start boundary', () => {
-    expect(sliceHistory(history, 25, 35)).toEqual([{ t: 25, d: 3 }, { t: 30, d: 8 }])
+    expect(sliceHistory(history, 25, 35)).toEqual([
+      { t: 25, d: 3 },
+      { t: 30, d: 8 },
+    ])
   })
   it('does not fabricate a baseline before the first point', () => {
     expect(sliceHistory(history, 1, 15)).toEqual([{ t: 10, d: 1 }])
   })
   it('slices open-ended ranges on either side', () => {
     // start only: keep everything from the boundary, carrying the last value.
-    expect(sliceHistory(history, 15, undefined)).toEqual([{ t: 15, d: 1 }, { t: 20, d: 3 }, { t: 30, d: 8 }])
+    expect(sliceHistory(history, 15, undefined)).toEqual([
+      { t: 15, d: 1 },
+      { t: 20, d: 3 },
+      { t: 30, d: 8 },
+    ])
     // end only: keep everything up to the boundary, with no synthetic baseline.
-    expect(sliceHistory(history, undefined, 25)).toEqual([{ t: 10, d: 1 }, { t: 20, d: 3 }])
+    expect(sliceHistory(history, undefined, 25)).toEqual([
+      { t: 10, d: 1 },
+      { t: 20, d: 3 },
+    ])
   })
 })

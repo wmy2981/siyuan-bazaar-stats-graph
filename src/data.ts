@@ -36,15 +36,38 @@ const DATA_SCHEMA = 1
  * snapshots small: d = downloads, a = average rating, c = rating count and
  * x = the five-star histogram (index 0 is one star).
  */
-interface Stats { d?: number; a?: number; c?: number; x?: number[] }
-interface Snapshot { t: number; full?: boolean; p: Record<string, Stats> }
-interface Summary { schema?: number; packages?: { name: string; repo?: string }[] }
-interface PackageDetail { schema?: number; name: string; repo: string; displayName?: string; current: Stats; history: ChartPoint[] }
+interface Stats {
+  d?: number
+  a?: number
+  c?: number
+  x?: number[]
+}
+interface Snapshot {
+  t: number
+  full?: boolean
+  p: Record<string, Stats>
+}
+interface Summary {
+  schema?: number
+  packages?: { name: string; repo?: string }[]
+}
+interface PackageDetail {
+  schema?: number
+  name: string
+  repo: string
+  displayName?: string
+  current: Stats
+  history: ChartPoint[]
+}
 
 /** Error carrying a localisable code, its substitutions and the status to log. */
 export class ChartError extends Error {
   readonly hint: string
-  constructor(readonly code: ErrorCode, readonly values: ErrorValues = {}, readonly status = 400) {
+  constructor(
+    readonly code: ErrorCode,
+    readonly values: ErrorValues = {},
+    readonly status = 400,
+  ) {
     const text = localizeError(code, values, 'en')
     super(text.message)
     this.hint = text.hint
@@ -52,7 +75,12 @@ export class ChartError extends Error {
 }
 
 /** Normalised history handed to the renderer. */
-export interface PackageHistory { name: string; displayName: string; history: ChartPoint[]; stale?: boolean }
+export interface PackageHistory {
+  name: string
+  displayName: string
+  history: ChartPoint[]
+  stale?: boolean
+}
 
 /**
  * Fetch with a 15s timeout. A slow answer is treated as an outage instead of being
@@ -60,7 +88,11 @@ export interface PackageHistory { name: string; displayName: string; history: Ch
  */
 async function get(url: string, timeout = 15_000): Promise<Response> {
   try {
-    return await fetch(url, { signal: AbortSignal.timeout(timeout), cf: { cacheEverything: false, cacheTtl: 0 }, headers: { 'User-Agent': 'siyuan-bazaar-stats-graph/1.0', Accept: 'application/json, application/x-ndjson, text/plain' } })
+    return await fetch(url, {
+      signal: AbortSignal.timeout(timeout),
+      cf: { cacheEverything: false, cacheTtl: 0 },
+      headers: { 'User-Agent': 'siyuan-bazaar-stats-graph/1.0', Accept: 'application/json, application/x-ndjson, text/plain' },
+    })
   } catch {
     throw new ChartError('dataSourceUnavailable', {}, 502)
   }
@@ -70,8 +102,11 @@ async function get(url: string, timeout = 15_000): Promise<Response> {
 async function json<T>(url: string): Promise<T> {
   const response = await get(url)
   if (!response.ok) throw new ChartError('dataSourceError', { status: response.status }, 502)
-  try { return await response.json() as T }
-  catch { throw new ChartError('dataSourceInvalid', {}, 502) }
+  try {
+    return (await response.json()) as T
+  } catch {
+    throw new ChartError('dataSourceInvalid', {}, 502)
+  }
 }
 
 /**
@@ -91,9 +126,14 @@ const repoNames = (repo: unknown): string[] => {
   try {
     const url = new URL(repo.startsWith('http') ? repo : `https://github.com/${repo}`)
     if (url.hostname !== 'github.com' && url.hostname !== 'www.github.com') return []
-    const parts = url.pathname.replace(/\.git$/, '').split('/').filter(Boolean)
+    const parts = url.pathname
+      .replace(/\.git$/, '')
+      .split('/')
+      .filter(Boolean)
     return parts.length >= 2 ? [`${parts[0]}/${parts[1]}`.toLowerCase()] : []
-  } catch { return [] }
+  } catch {
+    return []
+  }
 }
 
 /**
@@ -107,9 +147,13 @@ const repoNames = (repo: unknown): string[] => {
 async function resolvePackage(repo: string): Promise<string> {
   const wanted = repo.toLowerCase()
   let summary: Summary
-  try { summary = await json(SUMMARY_MIRROR_URL) } catch { summary = await json(SUMMARY_URL) }
+  try {
+    summary = await json(SUMMARY_MIRROR_URL)
+  } catch {
+    summary = await json(SUMMARY_URL)
+  }
   assertSchema(summary)
-  const found = summary.packages?.find(item => repoNames(item.repo).includes(wanted))
+  const found = summary.packages?.find((item) => repoNames(item.repo).includes(wanted))
   if (found) return found.name
   try {
     const index = await json<Record<string, unknown>>(INDEX_URL)
@@ -125,12 +169,18 @@ async function resolvePackage(repo: string): Promise<string> {
 function findInIndex(value: unknown, repo: string, key = ''): string | undefined {
   if (!value || typeof value !== 'object') return undefined
   if (Array.isArray(value)) {
-    for (const item of value) { const found = findInIndex(item, repo, key); if (found) return found }
+    for (const item of value) {
+      const found = findInIndex(item, repo, key)
+      if (found) return found
+    }
     return undefined
   }
   const record = value as Record<string, unknown>
   if (repoNames(record.repo).includes(repo) || repoNames(record.url).includes(repo)) return key || (typeof record.name === 'string' ? record.name : undefined)
-  for (const [childKey, child] of Object.entries(record)) { const found = findInIndex(child, repo, childKey); if (found) return found }
+  for (const [childKey, child] of Object.entries(record)) {
+    const found = findInIndex(child, repo, childKey)
+    if (found) return found
+  }
   return undefined
 }
 
@@ -140,7 +190,7 @@ function findInIndex(value: unknown, repo: string, key = ''): string | undefined
  * derive both the average and the total.
  */
 function rating(stats: Stats): Pick<ChartPoint, 'a' | 'c'> {
-  if (stats.x?.length === 5 && stats.x.every(n => Number.isFinite(n) && n >= 0)) {
+  if (stats.x?.length === 5 && stats.x.every((n) => Number.isFinite(n) && n >= 0)) {
     const c = stats.x.reduce((a, b) => a + b, 0)
     return c ? { a: stats.x.reduce((sum, n, i) => sum + n * (i + 1), 0) / c, c } : {}
   }
@@ -159,8 +209,14 @@ function point(t: number, stats: Stats): ChartPoint | undefined {
  */
 async function loadDetail(name: string): Promise<PackageDetail | undefined> {
   const file = `${encodeURIComponent(name)}.json`
-  try { return await json<PackageDetail>(`${PACKAGE_MIRROR_URL}${file}`) } catch {
-    try { return await json<PackageDetail>(`${PACKAGE_URL}${file}`) } catch { return undefined }
+  try {
+    return await json<PackageDetail>(`${PACKAGE_MIRROR_URL}${file}`)
+  } catch {
+    try {
+      return await json<PackageDetail>(`${PACKAGE_URL}${file}`)
+    } catch {
+      return undefined
+    }
   }
 }
 
@@ -179,7 +235,7 @@ export async function loadPackage(repo: string): Promise<PackageHistory> {
   if (detail) {
     assertSchema(detail)
     if (detail.name === name && Array.isArray(detail.history)) {
-      const history = detail.history.map(p => point(p.t, p)).filter((p): p is ChartPoint => !!p)
+      const history = detail.history.map((p) => point(p.t, p)).filter((p): p is ChartPoint => !!p)
       if (history.length) return { name, displayName: detail.displayName || name, history }
     }
   }
@@ -199,32 +255,45 @@ async function loadSnapshots(name: string): Promise<ChartPoint[]> {
   // History began in August 2026. Include the prior month for range baselines.
   for (let year = 2026, month = 7; year < now.getUTCFullYear() || (year === now.getUTCFullYear() && month <= now.getUTCMonth());) {
     months.push(`${year}-${String(month + 1).padStart(2, '0')}`)
-    if (++month === 12) { month = 0; year++ }
-  }
-  const result = await Promise.all(months.map(async month => {
-    const response = await get(`${RAW_URL}/${month}.jsonl`)
-    if (response.status === 404) return ''
-    if (!response.ok) throw new ChartError('historyUnavailable', { status: response.status }, 502)
-    if (Number(response.headers.get('content-length')) > MAX_SNAPSHOT_BYTES) throw new ChartError('historyTooLarge', {}, 502)
-    const text = await response.text()
-    if (text.length > MAX_SNAPSHOT_BYTES) throw new ChartError('historyTooLarge', {}, 502)
-    return text
-  }))
-  const history: ChartPoint[] = []
-  let current: ChartPoint | undefined
-  for (const text of result) for (const line of text.split('\n')) {
-    if (!line.trim()) continue
-    let snapshot: Snapshot
-    try { snapshot = JSON.parse(line) } catch { throw new ChartError('historyMalformed', {}, 502) }
-    if (!Number.isFinite(snapshot.t) || !snapshot.p || typeof snapshot.p !== 'object') continue
-    if (snapshot.full) current = undefined
-    const stats = snapshot.p[name]
-    if (stats) {
-      // Snapshots never carry `a` / `c`: upstream derives both from `x`, so only a
-      // histogram is authoritative in a snapshot row and any `a` / `c` is invalid.
-      const next = point(snapshot.t, { d: stats.d ?? current?.d, ...(stats.x ? { x: stats.x } : { a: current?.a, c: current?.c }) })
-      if (next) { current = next; history.push(next) }
+    if (++month === 12) {
+      month = 0
+      year++
     }
   }
+  const result = await Promise.all(
+    months.map(async (month) => {
+      const response = await get(`${RAW_URL}/${month}.jsonl`)
+      if (response.status === 404) return ''
+      if (!response.ok) throw new ChartError('historyUnavailable', { status: response.status }, 502)
+      if (Number(response.headers.get('content-length')) > MAX_SNAPSHOT_BYTES) throw new ChartError('historyTooLarge', {}, 502)
+      const text = await response.text()
+      if (text.length > MAX_SNAPSHOT_BYTES) throw new ChartError('historyTooLarge', {}, 502)
+      return text
+    }),
+  )
+  const history: ChartPoint[] = []
+  let current: ChartPoint | undefined
+  for (const text of result)
+    for (const line of text.split('\n')) {
+      if (!line.trim()) continue
+      let snapshot: Snapshot
+      try {
+        snapshot = JSON.parse(line)
+      } catch {
+        throw new ChartError('historyMalformed', {}, 502)
+      }
+      if (!Number.isFinite(snapshot.t) || !snapshot.p || typeof snapshot.p !== 'object') continue
+      if (snapshot.full) current = undefined
+      const stats = snapshot.p[name]
+      if (stats) {
+        // Snapshots never carry `a` / `c`: upstream derives both from `x`, so only a
+        // histogram is authoritative in a snapshot row and any `a` / `c` is invalid.
+        const next = point(snapshot.t, { d: stats.d ?? current?.d, ...(stats.x ? { x: stats.x } : { a: current?.a, c: current?.c }) })
+        if (next) {
+          current = next
+          history.push(next)
+        }
+      }
+    }
   return history
 }

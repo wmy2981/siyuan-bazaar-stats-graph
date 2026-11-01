@@ -108,7 +108,10 @@ export const ERRORS = {
     zh: { message: '历史数据过大', hint: '请缩小时间范围。' },
   },
   unsupportedSchema: {
-    en: { message: 'Unsupported upstream data format', hint: 'Upstream publishes schema {{schema}}; this service supports {{supported}} and needs an update before charts work again.' },
+    en: {
+      message: 'Unsupported upstream data format',
+      hint: 'Upstream publishes schema {{schema}}; this service supports {{supported}} and needs an update before charts work again.',
+    },
     zh: { message: '上游数据格式不受支持', hint: '上游格式版本为 {{schema}}，本服务支持 {{supported}}，需要更新后才能继续出图。' },
   },
   historyMalformed: {
@@ -133,5 +136,5 @@ export function localizeError(code: ErrorCode, values: ErrorValues = {}, lang: L
 /** `{{name}}` is interpolated; single braces stay literal, e.g. `/api/chart/{owner}/{repo}`. */
 /** Replace {placeholder} tokens; unknown tokens are left untouched. */
 function fill(template: string, values: ErrorValues): string {
-  return template.replace(/\{\{(\w+)\}\}/g, (placeholder, name: string) => name in values ? String(values[name]) : placeholder)
+  return template.replace(/\{\{(\w+)\}\}/g, (placeholder, name: string) => (name in values ? String(values[name]) : placeholder))
 }

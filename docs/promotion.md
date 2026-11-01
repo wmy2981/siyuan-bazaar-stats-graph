@@ -8,7 +8,7 @@
 
 Github 仓库：<https://github.com/wmy2981/siyuan-bazaar-stats-graph>
 
-*示例图（使用实时数据）：*
+_示例图（使用实时数据）：_
 
 ![wmy2981/ai-title-siyuan 的实时图表](https://siyuan-bazaar-stats-graph.sr1.cc.cd/api/chart/wmy2981/ai-title-siyuan?metrics=downloads,rating&range=90d&area=true&lang=zh)
 

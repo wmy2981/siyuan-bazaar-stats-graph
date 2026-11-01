@@ -34,8 +34,8 @@ export function parseOptions(url: URL, png = false): ChartOptions & { start?: nu
     return values[0]
   }
   const metricParam = one('metrics') || 'downloads'
-  const selected = [...new Set(metricParam.split(',').map(v => v.trim()))]
-  if (!selected.length || selected.some(v => !metrics.includes(v as Metric))) throw new ChartError('unknownMetric')
+  const selected = [...new Set(metricParam.split(',').map((v) => v.trim()))]
+  if (!selected.length || selected.some((v) => !metrics.includes(v as Metric))) throw new ChartError('unknownMetric')
   const theme = one('theme') || (png ? 'light' : 'auto')
   if (!themes.includes(theme as Theme)) throw new ChartError('unknownTheme')
   // A raster is frozen once rendered, so it cannot resolve auto the way the SVG does.
@@ -80,11 +80,18 @@ export function parseOptions(url: URL, png = false): ChartOptions & { start?: nu
   const days = ranges[range]
   const rangeEnd = end ?? Math.floor(Date.now() / 1000)
   return {
-    width: number('width', 800, 320, 1600), height: number('height', 400, 200, 1000),
-    theme: theme as Theme, metrics: selected as Metric[], lang: lang as ChartLanguage,
-    title: bool('title', true), legend: bool('legend', true), grid: bool('grid', true), area: bool('area', false),
+    width: number('width', 800, 320, 1600),
+    height: number('height', 400, 200, 1000),
+    theme: theme as Theme,
+    metrics: selected as Metric[],
+    lang: lang as ChartLanguage,
+    title: bool('title', true),
+    legend: bool('legend', true),
+    grid: bool('grid', true),
+    area: bool('area', false),
     updated: bool('updated', true),
-    start: start ?? (days ? rangeEnd - days * 86400 : undefined), end,
+    start: start ?? (days ? rangeEnd - days * 86400 : undefined),
+    end,
     // Both /api/chart and /api/png/chart end with the owner/repo pair.
     repo: url.pathname.split('/').filter(Boolean).slice(-2).join('/'),
   }
@@ -100,9 +107,9 @@ export function parseOptions(url: URL, png = false): ChartOptions & { start?: nu
  * from the left edge of the chart.
  */
 export function sliceHistory<T extends { t: number }>(history: T[], start?: number, end?: number): T[] {
-  const filtered = history.filter(p => (!start || p.t >= start) && (!end || p.t <= end))
+  const filtered = history.filter((p) => (!start || p.t >= start) && (!end || p.t <= end))
   if (start && filtered.length) {
-    const baseline = history.findLast(p => p.t < start)
+    const baseline = history.findLast((p) => p.t < start)
     if (baseline) filtered.unshift({ ...baseline, t: start })
   }
   return filtered

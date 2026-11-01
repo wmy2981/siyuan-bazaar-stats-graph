@@ -1,9 +1,9 @@
 /** Rendering contract: self-contained markup, stable geometry and localisation. */
-import { describe, expect, it } from 'vitest';
-import { renderChart, renderErrorChart, type ChartOptions, type ChartPoint } from '../src/chart';
+import { describe, expect, it } from 'vitest'
+import { renderChart, renderErrorChart, type ChartOptions, type ChartPoint } from '../src/chart'
 
-const DAY = 86_400_000;
-const time = (day: number) => Date.UTC(2024, 0, day);
+const DAY = 86_400_000
+const time = (day: number) => Date.UTC(2024, 0, day)
 const options = (overrides: Partial<ChartOptions> = {}): ChartOptions => ({
   width: 800,
   height: 400,
@@ -16,209 +16,245 @@ const options = (overrides: Partial<ChartOptions> = {}): ChartOptions => ({
   lang: 'en',
   repo: 'owner/project',
   ...overrides,
-});
+})
 
 describe('renderChart', () => {
   it('escapes all XML special characters in repository text', () => {
-    const svg = renderChart([], options({ repo: `<a&"'${'>'}` }));
-    expect(svg).toContain('&lt;a&amp;&quot;&apos;&gt;');
-    expect(svg).not.toContain('<a&');
-  });
+    const svg = renderChart([], options({ repo: `<a&"'${'>'}` }))
+    expect(svg).toContain('&lt;a&amp;&quot;&apos;&gt;')
+    expect(svg).not.toContain('<a&')
+  })
 
   it.each(['light', 'dark'] as const)('renders a self-contained %s theme', (theme) => {
-    const svg = renderChart([{ t: time(1), d: 1 }, { t: time(2), d: 2 }], options({ theme }));
-    expect(svg).toContain(`data-endpoint="downloads"`);
-    expect(svg).toContain(theme === 'dark' ? '#18232f' : '#f5f8fb');
-    expect(svg).not.toMatch(/<script\b|<link\b|<image\b|\shref\s*=|@import|url\s*\(/i);
-    expect(svg).toContain("-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif");
-  });
+    const svg = renderChart(
+      [
+        { t: time(1), d: 1 },
+        { t: time(2), d: 2 },
+      ],
+      options({ theme }),
+    )
+    expect(svg).toContain(`data-endpoint="downloads"`)
+    expect(svg).toContain(theme === 'dark' ? '#18232f' : '#f5f8fb')
+    expect(svg).not.toMatch(/<script\b|<link\b|<image\b|\shref\s*=|@import|url\s*\(/i)
+    expect(svg).toContain("-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif")
+  })
 
   it('ships both themes in one document when the theme is automatic', () => {
-    const svg = renderChart([{ t: time(1), d: 1 }, { t: time(2), d: 2 }], options({ theme: 'auto' }));
-    expect(svg).toContain('@media (prefers-color-scheme:dark)');
-    expect(svg).toContain(`--chart-background:${'#f5f8fb'}`);
-    expect(svg).toContain(`--chart-background:${'#18232f'}`);
-    expect(svg).toContain('class="chart-foreground" fill="#506579"');
-    expect(svg).toContain('class="chart-ring" stroke="#f5f8fb"');
+    const svg = renderChart(
+      [
+        { t: time(1), d: 1 },
+        { t: time(2), d: 2 },
+      ],
+      options({ theme: 'auto' }),
+    )
+    expect(svg).toContain('@media (prefers-color-scheme:dark)')
+    expect(svg).toContain(`--chart-background:${'#f5f8fb'}`)
+    expect(svg).toContain(`--chart-background:${'#18232f'}`)
+    expect(svg).toContain('class="chart-foreground" fill="#506579"')
+    expect(svg).toContain('class="chart-ring" stroke="#f5f8fb"')
     for (const theme of ['light', 'dark'] as const) {
-      const fixed = renderChart([{ t: time(1), d: 1 }], options({ theme }));
-      expect(fixed).not.toContain('<style>');
-      expect(fixed).not.toContain('prefers-color-scheme');
-      expect(fixed).not.toContain('class="chart-');
+      const fixed = renderChart([{ t: time(1), d: 1 }], options({ theme }))
+      expect(fixed).not.toContain('<style>')
+      expect(fixed).not.toContain('prefers-color-scheme')
+      expect(fixed).not.toContain('class="chart-')
     }
-  });
+  })
 
   it('ships both languages in one document when the language is automatic', () => {
-    const svg = renderChart([{ t: time(1), d: 1 }, { t: time(2), d: 2 }], options({ lang: 'auto' }));
-    expect(svg).toContain('data-lang="auto"');
-    expect(svg).toContain('systemLanguage="zh-CN,zh-SG,zh-TW,zh-HK,zh-MO,zh-Hans,zh-Hant,zh"');
-    expect(svg).toContain('lang="zh-CN"');
-    expect(svg).toContain('Downloads (L) 2');
-    expect(svg).toContain('下载量 (左轴) 2');
-    expect(svg).toContain('<switch>');
-    const fixed = renderChart([{ t: time(1), d: 1 }], options({ lang: 'en' }));
-    expect(fixed).toContain('data-lang="en"');
-    expect(fixed).not.toContain('<switch>');
-    expect(fixed).not.toContain('systemLanguage');
-  });
+    const svg = renderChart(
+      [
+        { t: time(1), d: 1 },
+        { t: time(2), d: 2 },
+      ],
+      options({ lang: 'auto' }),
+    )
+    expect(svg).toContain('data-lang="auto"')
+    expect(svg).toContain('systemLanguage="zh-CN,zh-SG,zh-TW,zh-HK,zh-MO,zh-Hans,zh-Hant,zh"')
+    expect(svg).toContain('lang="zh-CN"')
+    expect(svg).toContain('Downloads (L) 2')
+    expect(svg).toContain('下载量 (左轴) 2')
+    expect(svg).toContain('<switch>')
+    const fixed = renderChart([{ t: time(1), d: 1 }], options({ lang: 'en' }))
+    expect(fixed).toContain('data-lang="en"')
+    expect(fixed).not.toContain('<switch>')
+    expect(fixed).not.toContain('systemLanguage')
+  })
 
   it('keeps a measured gap between two full-width legend labels', () => {
-    const svg = renderChart([{ t: time(1), d: 10, a: 3.5 }, { t: time(2), d: 20, a: 4.5 }], options({
-      metrics: ['downloads', 'rating'], lang: 'zh',
-    }));
-    const items = [...svg.matchAll(/<line data-legend="([^"]+)" x1="([\d.]+)"[^>]*\/><text x="([\d.]+)"[^>]*>([^<]+)<\/text>/g)];
-    expect(items).toHaveLength(2);
-    const nextLineX = Number(items[1][2]);
-    const firstTextX = Number(items[0][3]);
-    expect(nextLineX - firstTextX).toBeGreaterThan(100);
-  });
+    const svg = renderChart(
+      [
+        { t: time(1), d: 10, a: 3.5 },
+        { t: time(2), d: 20, a: 4.5 },
+      ],
+      options({
+        metrics: ['downloads', 'rating'],
+        lang: 'zh',
+      }),
+    )
+    const items = [...svg.matchAll(/<line data-legend="([^"]+)" x1="([\d.]+)"[^>]*\/><text x="([\d.]+)"[^>]*>([^<]+)<\/text>/g)]
+    expect(items).toHaveLength(2)
+    const nextLineX = Number(items[1][2])
+    const firstTextX = Number(items[0][3])
+    expect(nextLineX - firstTextX).toBeGreaterThan(100)
+  })
 
   it('uses the correct metric fields and colors', () => {
-    const svg = renderChart([
-      { t: time(1), d: 10, a: 3.5, c: 4 },
-      { t: time(2), d: 20, a: 4.5, c: 8 },
-    ], options({ metrics: ['downloads', 'rating', 'ratings'] }));
-    expect(svg).toContain('data-metric="downloads"');
-    expect(svg).toContain('data-metric="rating"');
-    expect(svg).toContain('data-metric="ratings"');
-    expect(svg).toContain('#0f9f8f');
-    expect(svg).toContain('#8264c6');
-    expect(svg).toContain('#d48a17');
-    expect(svg).toContain('Downloads (L) 20');
-    expect(svg).toContain('Rating (R) 4.5');
-    expect(svg).toContain('Ratings (R) 8');
-    expect(svg).toContain('data-legend="ratings"');
+    const svg = renderChart(
+      [
+        { t: time(1), d: 10, a: 3.5, c: 4 },
+        { t: time(2), d: 20, a: 4.5, c: 8 },
+      ],
+      options({ metrics: ['downloads', 'rating', 'ratings'] }),
+    )
+    expect(svg).toContain('data-metric="downloads"')
+    expect(svg).toContain('data-metric="rating"')
+    expect(svg).toContain('data-metric="ratings"')
+    expect(svg).toContain('#0f9f8f')
+    expect(svg).toContain('#8264c6')
+    expect(svg).toContain('#d48a17')
+    expect(svg).toContain('Downloads (L) 20')
+    expect(svg).toContain('Rating (R) 4.5')
+    expect(svg).toContain('Ratings (R) 8')
+    expect(svg).toContain('data-legend="ratings"')
     for (const metric of ['downloads', 'rating', 'ratings']) {
-      const line = svg.match(new RegExp(`<polyline data-metric="${metric}"[^>]*stroke="([^"]+)"`))?.[1];
-      const legend = svg.match(new RegExp(`<line data-legend="${metric}"[^>]*stroke="([^"]+)"`))?.[1];
-      expect(legend, `${metric} legend must use its line color`).toBe(line);
+      const line = svg.match(new RegExp(`<polyline data-metric="${metric}"[^>]*stroke="([^"]+)"`))?.[1]
+      const legend = svg.match(new RegExp(`<line data-legend="${metric}"[^>]*stroke="([^"]+)"`))?.[1]
+      expect(legend, `${metric} legend must use its line color`).toBe(line)
     }
-    expect(svg).toMatch(/>1 \/ \d+<\/text>/);
-  });
+    expect(svg).toMatch(/>1 \/ \d+<\/text>/)
+  })
 
   it('dots the ratings line when it shares the right axis with the rating average', () => {
-    const svg = renderChart([
-      { t: time(1), d: 10, a: 5, c: 2 },
-      { t: time(2), d: 20, a: 5, c: 3 },
-    ], options({ metrics: ['downloads', 'rating', 'ratings'] }));
+    const svg = renderChart(
+      [
+        { t: time(1), d: 10, a: 5, c: 2 },
+        { t: time(2), d: 20, a: 5, c: 3 },
+      ],
+      options({ metrics: ['downloads', 'rating', 'ratings'] }),
+    )
     // A near-zero dash with round caps renders as even dots, not long hand-drawn dashes.
-    expect(svg).toMatch(/<polyline data-metric="ratings"[^>]*stroke-dasharray="0\.5 6"/);
-    expect(svg).toMatch(/<polyline data-metric="ratings"[^>]*stroke-linecap="round"/);
-    expect(svg).not.toContain('stroke-dasharray="12 9"');
-    expect(svg).not.toContain('stroke-linecap="butt"');
+    expect(svg).toMatch(/<polyline data-metric="ratings"[^>]*stroke-dasharray="0\.5 6"/)
+    expect(svg).toMatch(/<polyline data-metric="ratings"[^>]*stroke-linecap="round"/)
+    expect(svg).not.toContain('stroke-dasharray="12 9"')
+    expect(svg).not.toContain('stroke-linecap="butt"')
     // The legend swatch uses the exact same dotted pattern and cap as the line.
-    expect(svg).toMatch(/<line data-legend="ratings"[^>]*stroke-dasharray="0\.5 6"/);
-    expect(svg).toMatch(/<line data-legend="ratings"[^>]*stroke-linecap="round"/);
-    expect(svg).not.toMatch(/<polyline data-metric="rating"[^>]*stroke-dasharray/);
-    expect(svg).not.toMatch(/<line data-legend="rating"[^>]*stroke-dasharray/);
-  });
+    expect(svg).toMatch(/<line data-legend="ratings"[^>]*stroke-dasharray="0\.5 6"/)
+    expect(svg).toMatch(/<line data-legend="ratings"[^>]*stroke-linecap="round"/)
+    expect(svg).not.toMatch(/<polyline data-metric="rating"[^>]*stroke-dasharray/)
+    expect(svg).not.toMatch(/<line data-legend="rating"[^>]*stroke-dasharray/)
+  })
 
   it('draws a background halo under solid lines only, before any line', () => {
     const points = [
       { t: time(1), d: 10, a: 5, c: 2 },
       { t: time(2), d: 20, a: 5, c: 3 },
-    ];
-    for (const [theme, background] of [['light', '#f5f8fb'], ['dark', '#18232f']] as const) {
-      const svg = renderChart(points, options({ theme, metrics: ['downloads', 'rating', 'ratings'], area: true }));
-      const halos = [...svg.matchAll(/<polyline data-halo="([^"]+)" points="([^"]+)"[^>]*stroke="([^"]+)" stroke-width="([\d.]+)"/g)];
-      const lines = [...svg.matchAll(/<polyline data-metric="([^"]+)"[^>]* points="([^"]+)"/g)];
-      expect(halos.map((halo) => halo[1])).toEqual(['downloads', 'rating']);
+    ]
+    for (const [theme, background] of [
+      ['light', '#f5f8fb'],
+      ['dark', '#18232f'],
+    ] as const) {
+      const svg = renderChart(points, options({ theme, metrics: ['downloads', 'rating', 'ratings'], area: true }))
+      const halos = [...svg.matchAll(/<polyline data-halo="([^"]+)" points="([^"]+)"[^>]*stroke="([^"]+)" stroke-width="([\d.]+)"/g)]
+      const lines = [...svg.matchAll(/<polyline data-metric="([^"]+)"[^>]* points="([^"]+)"/g)]
+      expect(halos.map((halo) => halo[1])).toEqual(['downloads', 'rating'])
       // The dotted ratings line is plain dots: no background band behind them.
-      expect(svg).not.toContain('data-halo="ratings"');
-      expect(svg).toMatch(/<polyline data-metric="ratings"[^>]*stroke-dasharray="0\.5 6"/);
+      expect(svg).not.toContain('data-halo="ratings"')
+      expect(svg).toMatch(/<polyline data-metric="ratings"[^>]*stroke-dasharray="0\.5 6"/)
       // Each halo traces its line exactly, is wider, and uses the background colour.
       for (const halo of halos) {
-        const line = lines.find((candidate) => candidate[1] === halo[1]);
-        expect(line, `${halo[1]} halo must trace its line`).toBeDefined();
-        expect(halo[2]).toBe(line![2]);
-        expect(halo[3]).toBe(background);
-        expect(Number(halo[4])).toBeGreaterThan(2);
-        expect(halo[0]).not.toContain('stroke-dasharray');
+        const line = lines.find((candidate) => candidate[1] === halo[1])
+        expect(line, `${halo[1]} halo must trace its line`).toBeDefined()
+        expect(halo[2]).toBe(line![2])
+        expect(halo[3]).toBe(background)
+        expect(Number(halo[4])).toBeGreaterThan(2)
+        expect(halo[0]).not.toContain('stroke-dasharray')
       }
       // All halos precede all lines, so a halo can never paint over another line,
       // and the downloads area fill stays underneath its halo.
-      expect(svg.lastIndexOf('data-halo=')).toBeLessThan(svg.indexOf('data-metric='));
-      expect(svg.indexOf('<path')).toBeLessThan(svg.indexOf('data-halo="downloads"'));
-      expect(svg).toContain('data-endpoint="ratings"');
+      expect(svg.lastIndexOf('data-halo=')).toBeLessThan(svg.indexOf('data-metric='))
+      expect(svg.indexOf('<path')).toBeLessThan(svg.indexOf('data-halo="downloads"'))
+      expect(svg).toContain('data-endpoint="ratings"')
     }
-    const auto = renderChart(points, options({ theme: 'auto', metrics: ['downloads', 'rating', 'ratings'] }));
-    expect(auto).toMatch(/<polyline data-halo="rating"[^>]*class="chart-ring" stroke="#f5f8fb"/);
-    const single = renderChart([{ t: time(1), a: 4 }], options({ metrics: ['rating'] }));
-    expect(single).not.toContain('data-halo');
-    expect(single).toContain('<circle');
-  });
+    const auto = renderChart(points, options({ theme: 'auto', metrics: ['downloads', 'rating', 'ratings'] }))
+    expect(auto).toMatch(/<polyline data-halo="rating"[^>]*class="chart-ring" stroke="#f5f8fb"/)
+    const single = renderChart([{ t: time(1), a: 4 }], options({ metrics: ['rating'] }))
+    expect(single).not.toContain('data-halo')
+    expect(single).toContain('<circle')
+  })
 
   it('keeps the ratings line solid when the rating average is not drawn', () => {
-    const svg = renderChart([
-      { t: time(1), d: 10, c: 2 },
-      { t: time(2), d: 20, c: 3 },
-    ], options({ metrics: ['downloads', 'ratings'] }));
-    expect(svg).toContain('data-metric="ratings"');
-    expect(svg).not.toContain('stroke-dasharray');
-  });
+    const svg = renderChart(
+      [
+        { t: time(1), d: 10, c: 2 },
+        { t: time(2), d: 20, c: 3 },
+      ],
+      options({ metrics: ['downloads', 'ratings'] }),
+    )
+    expect(svg).toContain('data-metric="ratings"')
+    expect(svg).not.toContain('stroke-dasharray')
+  })
 
   it('breaks a line at missing ratings instead of interpolating', () => {
-    const svg = renderChart([
-      { t: time(1), a: 2 },
-      { t: time(2) },
-      { t: time(3), a: 5 },
-    ], options({ metrics: ['rating'] }));
-    expect(svg).not.toContain('data-metric="rating"');
-    expect(svg.match(/<circle/g)).toHaveLength(3);
-    expect(svg).toContain('>1</text>');
-    expect(svg).toContain('>5</text>');
-  });
+    const svg = renderChart([{ t: time(1), a: 2 }, { t: time(2) }, { t: time(3), a: 5 }], options({ metrics: ['rating'] }))
+    expect(svg).not.toContain('data-metric="rating"')
+    expect(svg.match(/<circle/g)).toHaveLength(3)
+    expect(svg).toContain('>1</text>')
+    expect(svg).toContain('>5</text>')
+  })
 
   it('renders a friendly empty state and omits unselected metrics', () => {
-    const empty = renderChart([], options({ lang: 'zh', metrics: ['rating'] }));
-    expect(empty).toContain('暂无所选指标数据');
-    expect(empty).not.toContain('data-metric="downloads"');
-    const missing = renderChart([{ t: time(1), a: 4 }], options({ metrics: ['downloads'] }));
-    expect(missing).toContain('No data for the selected metrics');
-  });
+    const empty = renderChart([], options({ lang: 'zh', metrics: ['rating'] }))
+    expect(empty).toContain('暂无所选指标数据')
+    expect(empty).not.toContain('data-metric="downloads"')
+    const missing = renderChart([{ t: time(1), a: 4 }], options({ metrics: ['downloads'] }))
+    expect(missing).toContain('No data for the selected metrics')
+  })
 
   it('keeps the title date-free and shows the upstream update time to the second', () => {
-    const svg = renderChart([
-      { t: time(1), d: 1 },
-      { t: time(10), d: 2 },
-    ], options({ repo: 'x/y', lastUpdated: Date.UTC(2024, 0, 11, 6, 7, 8) }));
-    expect(svg).toContain('>x/y</text>');
-    expect(svg).not.toContain('x/y ·');
-    expect(svg).toMatch(/<text data-updated="true"[^>]*>Last updated: 2024-01-11 06:07:08 UTC<\/text>/);
-    const dates = [...svg.matchAll(/font-size="10">(2024-01-\d{2})<\/text>/g)].map((match) => match[1]);
-    expect(dates.length).toBe(6);
-    expect(dates[0]).toBe('2024-01-01');
-    expect(dates.at(-1)).toBe('2024-01-10');
-  });
+    const svg = renderChart(
+      [
+        { t: time(1), d: 1 },
+        { t: time(10), d: 2 },
+      ],
+      options({ repo: 'x/y', lastUpdated: Date.UTC(2024, 0, 11, 6, 7, 8) }),
+    )
+    expect(svg).toContain('>x/y</text>')
+    expect(svg).not.toContain('x/y ·')
+    expect(svg).toMatch(/<text data-updated="true"[^>]*>Last updated: 2024-01-11 06:07:08 UTC<\/text>/)
+    const dates = [...svg.matchAll(/font-size="10">(2024-01-\d{2})<\/text>/g)].map((match) => match[1])
+    expect(dates.length).toBe(6)
+    expect(dates[0]).toBe('2024-01-01')
+    expect(dates.at(-1)).toBe('2024-01-10')
+  })
 
   it('localizes the update time and can hide it', () => {
-    const zh = renderChart([{ t: time(1), d: 1 }], options({ lang: 'zh', lastUpdated: Date.UTC(2024, 0, 1, 23, 59, 59) }));
-    expect(zh).toContain('最后更新：2024-01-01 23:59:59 UTC');
-    const hidden = renderChart([{ t: time(1), d: 1 }], options({ updated: false }));
-    expect(hidden).not.toContain('data-updated');
+    const zh = renderChart([{ t: time(1), d: 1 }], options({ lang: 'zh', lastUpdated: Date.UTC(2024, 0, 1, 23, 59, 59) }))
+    expect(zh).toContain('最后更新：2024-01-01 23:59:59 UTC')
+    const hidden = renderChart([{ t: time(1), d: 1 }], options({ updated: false }))
+    expect(hidden).not.toContain('data-updated')
     // The auto document carries one update line per language branch.
-    const auto = renderChart([{ t: time(1), d: 1 }], options({ lang: 'auto', lastUpdated: time(1) }));
-    expect(auto.match(/data-updated="true"/g)).toHaveLength(2);
-  });
+    const auto = renderChart([{ t: time(1), d: 1 }], options({ lang: 'auto', lastUpdated: time(1) }))
+    expect(auto.match(/data-updated="true"/g)).toHaveLength(2)
+  })
 
   it('moves the update time below the legend when the width cannot hold both', () => {
     const points = [
       { t: time(1), d: 1, a: 2, c: 1 },
       { t: time(2), d: 2, a: 3, c: 2 },
-    ];
-    const wide = renderChart(points, options({ width: 800, lastUpdated: time(2) }));
-    const narrow = renderChart(points, options({ width: 320, height: 200, metrics: ['downloads', 'rating', 'ratings'], lastUpdated: time(2) }));
-    const baseline = (svg: string) => Number(/<line x1="[\d.]+" y1="([\d.]+)"/.exec(svg)?.[1]);
-    const legendY = (svg: string) => Number(/<text x="[\d.]+" y="([\d.]+)"[^>]*>Downloads/.exec(svg)?.[1]);
-    const updatedY = (svg: string) => Number(/<text data-updated="true"[^>]*y="([\d.]+)"/.exec(svg)?.[1]);
+    ]
+    const wide = renderChart(points, options({ width: 800, lastUpdated: time(2) }))
+    const narrow = renderChart(points, options({ width: 320, height: 200, metrics: ['downloads', 'rating', 'ratings'], lastUpdated: time(2) }))
+    const baseline = (svg: string) => Number(/<line x1="[\d.]+" y1="([\d.]+)"/.exec(svg)?.[1])
+    const legendY = (svg: string) => Number(/<text x="[\d.]+" y="([\d.]+)"[^>]*>Downloads/.exec(svg)?.[1])
+    const updatedY = (svg: string) => Number(/<text data-updated="true"[^>]*y="([\d.]+)"/.exec(svg)?.[1])
     // Wide: the update line shares the last legend row.
-    expect(updatedY(wide)).toBe(legendY(wide));
+    expect(updatedY(wide)).toBe(legendY(wide))
     // Narrow: it drops below the legend, and the plot still sits above both.
-    expect(updatedY(narrow)).toBeGreaterThan(legendY(narrow));
-    expect(updatedY(narrow)).toBe(194);
-    expect(legendY(narrow)).toBeGreaterThan(baseline(narrow));
-    expect(narrow).toContain('data-metric="ratings"');
-  });
+    expect(updatedY(narrow)).toBeGreaterThan(legendY(narrow))
+    expect(updatedY(narrow)).toBe(194)
+    expect(legendY(narrow)).toBeGreaterThan(baseline(narrow))
+    expect(narrow).toContain('data-metric="ratings"')
+  })
 
   it('limits every sampled series to 500 points and keeps endpoints and extrema', () => {
     const points: ChartPoint[] = Array.from({ length: 1001 }, (_, i) => ({
@@ -226,89 +262,104 @@ describe('renderChart', () => {
       d: i === 700 ? 9999 : i === 300 ? -0 : i,
       a: i === 600 ? 5 : i === 200 ? 1 : 3,
       c: i,
-    }));
-    const svg = renderChart(points, options({ metrics: ['downloads', 'rating', 'ratings'] }));
-    const coordinates = [...svg.matchAll(/data-metric="downloads"[^>]* points="([^"]+)"/g)][0][1]
-      .split(' ').map((pair) => pair.split(',').map(Number));
-    expect(coordinates.length).toBeLessThanOrEqual(500);
-    expect(coordinates[0][0]).toBe(coordinates.reduce((min, pair) => Math.min(min, pair[0]), Infinity));
-    expect(coordinates.at(-1)![0]).toBe(coordinates.reduce((max, pair) => Math.max(max, pair[0]), -Infinity));
-    expect(Math.min(...coordinates.map((pair) => pair[1]))).toBeLessThan(51);
-    expect(svg).toContain('Downloads (L) 1000');
-    expect(svg).toContain('Rating (R) 3');
-  });
+    }))
+    const svg = renderChart(points, options({ metrics: ['downloads', 'rating', 'ratings'] }))
+    const coordinates = [...svg.matchAll(/data-metric="downloads"[^>]* points="([^"]+)"/g)][0][1].split(' ').map((pair) => pair.split(',').map(Number))
+    expect(coordinates.length).toBeLessThanOrEqual(500)
+    expect(coordinates[0][0]).toBe(coordinates.reduce((min, pair) => Math.min(min, pair[0]), Infinity))
+    expect(coordinates.at(-1)![0]).toBe(coordinates.reduce((max, pair) => Math.max(max, pair[0]), -Infinity))
+    expect(Math.min(...coordinates.map((pair) => pair[1]))).toBeLessThan(51)
+    expect(svg).toContain('Downloads (L) 1000')
+    expect(svg).toContain('Rating (R) 3')
+  })
 
   it('samples long segments independently without joining gaps or losing global extrema', () => {
     const points: ChartPoint[] = Array.from({ length: 6000 }, (_, i) => ({
       t: time(1) + i * DAY,
-      d: i === 0 || i === 3000 ? undefined : i === 2900 ? 9000 : i === 100 ? 1 : 50 + i % 20,
-    }));
-    const svg = renderChart(points, options({ area: true }));
-    const lines = [...svg.matchAll(/<polyline data-metric="downloads"[^>]*points="([^"]+)"/g)];
-    expect(lines).toHaveLength(2);
-    for (const line of lines) expect(line[1].split(' ').length).toBeLessThanOrEqual(500);
-    expect(svg).toContain('data-start="1"');
-    expect(svg).toContain('data-start="3001"');
-    const allY = lines.flatMap((line) => line[1].split(' ').map((pair) => Number(pair.split(',')[1])));
-    expect(Math.min(...allY)).toBeLessThan(83);
-    expect(Math.max(...allY)).toBeGreaterThan(358);
-  });
+      d: i === 0 || i === 3000 ? undefined : i === 2900 ? 9000 : i === 100 ? 1 : 50 + (i % 20),
+    }))
+    const svg = renderChart(points, options({ area: true }))
+    const lines = [...svg.matchAll(/<polyline data-metric="downloads"[^>]*points="([^"]+)"/g)]
+    expect(lines).toHaveLength(2)
+    for (const line of lines) expect(line[1].split(' ').length).toBeLessThanOrEqual(500)
+    expect(svg).toContain('data-start="1"')
+    expect(svg).toContain('data-start="3001"')
+    const allY = lines.flatMap((line) => line[1].split(' ').map((pair) => Number(pair.split(',')[1])))
+    expect(Math.min(...allY)).toBeLessThan(83)
+    expect(Math.max(...allY)).toBeGreaterThan(358)
+  })
 
   it('honors switches and draws area only for downloads', () => {
-    const points = [{ t: time(1), d: 1, a: 3 }, { t: time(2), d: 2, a: 4 }];
-    const svg = renderChart(points, options({
-      metrics: ['downloads', 'rating'], title: false, legend: false, grid: false, area: true,
-    }));
-    expect(svg).not.toContain('owner/project ·');
-    expect(svg).not.toContain('Downloads (L)');
-    expect(svg).not.toContain(`stroke="#dce5ed" stroke-width="1"`);
-    expect(svg).toContain('<path');
-    expect(svg).not.toContain('<path data-metric="rating"');
-  });
+    const points = [
+      { t: time(1), d: 1, a: 3 },
+      { t: time(2), d: 2, a: 4 },
+    ]
+    const svg = renderChart(
+      points,
+      options({
+        metrics: ['downloads', 'rating'],
+        title: false,
+        legend: false,
+        grid: false,
+        area: true,
+      }),
+    )
+    expect(svg).not.toContain('owner/project ·')
+    expect(svg).not.toContain('Downloads (L)')
+    expect(svg).not.toContain(`stroke="#dce5ed" stroke-width="1"`)
+    expect(svg).toContain('<path')
+    expect(svg).not.toContain('<path data-metric="rating"')
+  })
 
   it('omits the card, halos and rings when the theme is transparent', () => {
-    const svg = renderChart([
-      { t: time(1), d: 10, a: 4 },
-      { t: time(2), d: 20, a: 5 },
-    ], options({ theme: 'transparent', metrics: ['downloads', 'rating'], area: true }));
-    expect(svg).not.toContain('<rect width="100%"');
-    expect(svg).not.toContain('data-halo');
+    const svg = renderChart(
+      [
+        { t: time(1), d: 10, a: 4 },
+        { t: time(2), d: 20, a: 5 },
+      ],
+      options({ theme: 'transparent', metrics: ['downloads', 'rating'], area: true }),
+    )
+    expect(svg).not.toContain('<rect width="100%"')
+    expect(svg).not.toContain('data-halo')
     // Nothing paints the palette background, not even in the endpoint ring.
-    expect(svg).not.toMatch(/data-endpoint="downloads"[^>]*stroke=/);
+    expect(svg).not.toMatch(/data-endpoint="downloads"[^>]*stroke=/)
     // The SVG still follows the reader, so text and grid stay legible on either
     // page colour; only the background is gone.
-    expect(svg).toContain('@media (prefers-color-scheme:dark)');
-    expect(svg).toContain('class="chart-foreground" fill="#506579"');
-    expect(svg).toContain('data-metric="downloads"');
-    expect(svg).toContain('data-endpoint="downloads"');
-  });
+    expect(svg).toContain('@media (prefers-color-scheme:dark)')
+    expect(svg).toContain('class="chart-foreground" fill="#506579"')
+    expect(svg).toContain('data-metric="downloads"')
+    expect(svg).toContain('data-endpoint="downloads"')
+  })
 
   it('keeps a plot and compact legends at narrow dimensions', () => {
-    const svg = renderChart([
-      { t: time(1), d: 1, a: 2, c: 1 },
-      { t: time(2), d: 2, a: 3, c: 2 },
-    ], options({ width: 320, height: 200, metrics: ['downloads', 'rating', 'ratings'] }));
-    const baseline = Number(/<line x1="[\d.]+" y1="([\d.]+)"/.exec(svg)?.[1]);
-    const firstLegend = Number(/<text x="[\d.]+" y="([\d.]+)"[^>]*>Downloads/.exec(svg)?.[1]);
-    expect(baseline).toBeLessThan(firstLegend);
+    const svg = renderChart(
+      [
+        { t: time(1), d: 1, a: 2, c: 1 },
+        { t: time(2), d: 2, a: 3, c: 2 },
+      ],
+      options({ width: 320, height: 200, metrics: ['downloads', 'rating', 'ratings'] }),
+    )
+    const baseline = Number(/<line x1="[\d.]+" y1="([\d.]+)"/.exec(svg)?.[1])
+    const firstLegend = Number(/<text x="[\d.]+" y="([\d.]+)"[^>]*>Downloads/.exec(svg)?.[1])
+    expect(baseline).toBeLessThan(firstLegend)
     // The plot keeps at least 60px; the update line adds one row below the legend.
-    expect(baseline - 50).toBeGreaterThanOrEqual(60);
-    expect(200 - baseline).toBeLessThanOrEqual(86);
-    const dates = [...svg.matchAll(/font-size="10">(2024-[^<]+)<\/text>/g)].map(match => match[1]);
-    expect(dates.length).toBeLessThanOrEqual(3);
-  });
-});
+    expect(baseline - 50).toBeGreaterThanOrEqual(60)
+    expect(200 - baseline).toBeLessThanOrEqual(86)
+    const dates = [...svg.matchAll(/font-size="10">(2024-[^<]+)<\/text>/g)].map((match) => match[1])
+    expect(dates.length).toBeLessThanOrEqual(3)
+  })
+})
 
 describe('renderErrorChart', () => {
   it('renders escaped, complete multi-line hints without scripts or external assets', () => {
-    const hint = `Check https://example.com/${'averylongpath&'.repeat(12)} then retry.\n第二行 <完整> 可读`;
-    const svg = renderErrorChart('Unable to load <stats>', hint, 'network');
-    expect(svg).toContain('width="800" height="220"');
-    expect(svg).toContain('data-kind="network"');
-    expect(svg).toContain('Unable to load &lt;stats&gt;');
-    expect(svg).toContain('https://example.com/');
-    expect(svg).toContain('第二行 &lt;完整&gt; 可读');
-    expect(svg.match(/<text/g)!.length).toBeGreaterThan(4);
-    expect(svg).not.toMatch(/<script\b|<link\b|\shref\s*=|@import|url\s*\(/i);
-  });
-});
+    const hint = `Check https://example.com/${'averylongpath&'.repeat(12)} then retry.\n第二行 <完整> 可读`
+    const svg = renderErrorChart('Unable to load <stats>', hint, 'network')
+    expect(svg).toContain('width="800" height="220"')
+    expect(svg).toContain('data-kind="network"')
+    expect(svg).toContain('Unable to load &lt;stats&gt;')
+    expect(svg).toContain('https://example.com/')
+    expect(svg).toContain('第二行 &lt;完整&gt; 可读')
+    expect(svg.match(/<text/g)!.length).toBeGreaterThan(4)
+    expect(svg).not.toMatch(/<script\b|<link\b|\shref\s*=|@import|url\s*\(/i)
+  })
+})

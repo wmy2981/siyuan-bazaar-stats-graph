@@ -1,321 +1,402 @@
 <!doctype html>
 <html lang="en" data-page-theme-mode="auto" data-color-mode="light">
-<head>
-	<meta charset="utf-8">
-	<meta name="viewport" content="width=device-width, initial-scale=1">
-	<title>Bazaar Graph — SiYuan package chart builder</title>
-	<meta name="description" content="Build an embeddable SVG trend chart for any SiYuan bazaar package.">
-	<meta name="color-scheme" content="light dark">
-	<meta name="theme-color" content="#edf2ee">
-	<!-- Apply the stored page theme before the first paint so the page does not flash. -->
-	<script>
-		(() => {
-			const key = 'siyuan-bazaar-page-theme';
-			let mode = 'auto';
-			try {
-				const stored = localStorage.getItem(key);
-				if (stored === 'auto' || stored === 'light' || stored === 'dark') mode = stored;
-			} catch {}
-			const dark = mode === 'dark' || (mode === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches);
-			document.documentElement.dataset.pageThemeMode = mode;
-			document.documentElement.dataset.colorMode = dark ? 'dark' : 'light';
-			document.querySelector('meta[name="theme-color"]').setAttribute('content', dark ? '#080808' : '#edf2ee');
-		})();
-	</script>
-	<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='5' fill='%2312231f'/%3E%3Cpath d='M6 23V8M6 23h20' fill='none' stroke='%238ea79c' stroke-width='1.5'/%3E%3Cpath d='M9 20l5-6 4 3 6-8' fill='none' stroke='%236fe0cb' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
-	<style>/*__STYLE__*/</style>
-</head>
-<body>
-	<a class="skip-link" href="#builder" data-i18n="skip">Skip to chart builder</a>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Bazaar Graph — SiYuan package chart builder</title>
+    <meta name="description" content="Build an embeddable SVG trend chart for any SiYuan bazaar package." />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="theme-color" content="#edf2ee" />
+    <!-- Apply the stored page theme before the first paint so the page does not flash. -->
+    <script>
+      ;(() => {
+        const key = 'siyuan-bazaar-page-theme'
+        let mode = 'auto'
+        try {
+          const stored = localStorage.getItem(key)
+          if (stored === 'auto' || stored === 'light' || stored === 'dark') mode = stored
+        } catch {}
+        const dark = mode === 'dark' || (mode === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches)
+        document.documentElement.dataset.pageThemeMode = mode
+        document.documentElement.dataset.colorMode = dark ? 'dark' : 'light'
+        document.querySelector('meta[name="theme-color"]').setAttribute('content', dark ? '#080808' : '#edf2ee')
+      })()
+    </script>
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='5' fill='%2312231f'/%3E%3Cpath d='M6 23V8M6 23h20' fill='none' stroke='%238ea79c' stroke-width='1.5'/%3E%3Cpath d='M9 20l5-6 4 3 6-8' fill='none' stroke='%236fe0cb' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"
+    />
+    <style>
+      /*__STYLE__*/
+    </style>
+  </head>
+  <body>
+    <a class="skip-link" href="#builder" data-i18n="skip">Skip to chart builder</a>
 
-	<div class="page">
-		<header class="topbar">
-			<a class="brand" href="/" aria-label="Bazaar Graph">
-				<span class="brand-mark" aria-hidden="true">
-					<svg viewBox="0 0 32 32"><path class="brand-axis" d="M5 25V6M5 25h22"/><path class="brand-line" d="M9 21l6-7 5 4 7-10"/></svg>
-				</span>
-				<span class="brand-name">Bazaar Graph</span>
-				<span class="brand-tag" data-i18n="brand.tag">SiYuan chart builder</span>
-			</a>
-			<nav class="topbar-nav" aria-label="Site" data-i18n-aria-label="aria.site">
-				<a class="source-link" href="/docs" data-i18n="nav.docs">API docs</a>
-				<a class="source-link" href="https://github.com/wmy2981/siyuan-bazaar-stats-graph" target="_blank" rel="noreferrer" data-i18n="nav.source">Source</a>
-				<div class="topbar-controls">
-					<div class="page-theme-switch" role="group" aria-label="Page theme" data-i18n-aria-label="aria.pageTheme">
-						<button type="button" class="page-theme-option" data-page-theme-mode="auto" aria-pressed="true" title="Follow system" data-i18n-title="pageTheme.auto" data-i18n-aria-label="pageTheme.auto">
-							<svg viewBox="0 0 16 16" aria-hidden="true"><rect x="1.5" y="2.5" width="13" height="9" rx="1"/><path d="M5.5 14h5M8 11.5V14"/></svg>
-						</button>
-						<button type="button" class="page-theme-option" data-page-theme-mode="light" aria-pressed="false" title="Light" data-i18n-title="pageTheme.light" data-i18n-aria-label="pageTheme.light">
-							<svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="3"/><path d="M8 1v1.6M8 13.4V15M1 8h1.6M13.4 8H15M3 3l1.1 1.1M11.9 11.9 13 13M13 3l-1.1 1.1M4.1 11.9 3 13"/></svg>
-						</button>
-						<button type="button" class="page-theme-option" data-page-theme-mode="dark" aria-pressed="false" title="Dark" data-i18n-title="pageTheme.dark" data-i18n-aria-label="pageTheme.dark">
-							<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M13.3 10.1A5.8 5.8 0 0 1 5.9 2.7 5.8 5.8 0 1 0 13.3 10.1Z"/></svg>
-						</button>
-					</div>
-					<div class="language-switch" role="group" aria-label="Page language" data-i18n-aria-label="aria.pageLanguage">
-						<button type="button" class="language-option" data-page-lang="en" aria-pressed="true">EN</button>
-						<button type="button" class="language-option" data-page-lang="zh" aria-pressed="false">中文</button>
-					</div>
-				</div>
-			</nav>
-		</header>
+    <div class="page">
+      <header class="topbar">
+        <a class="brand" href="/" aria-label="Bazaar Graph">
+          <span class="brand-mark" aria-hidden="true">
+            <svg viewBox="0 0 32 32">
+              <path class="brand-axis" d="M5 25V6M5 25h22" />
+              <path class="brand-line" d="M9 21l6-7 5 4 7-10" />
+            </svg>
+          </span>
+          <span class="brand-name">Bazaar Graph</span>
+          <span class="brand-tag" data-i18n="brand.tag">SiYuan chart builder</span>
+        </a>
+        <nav class="topbar-nav" aria-label="Site" data-i18n-aria-label="aria.site">
+          <a class="source-link" href="/docs" data-i18n="nav.docs">API docs</a>
+          <a class="source-link" href="https://github.com/wmy2981/siyuan-bazaar-stats-graph" target="_blank" rel="noreferrer" data-i18n="nav.source">Source</a>
+          <div class="topbar-controls">
+            <div class="page-theme-switch" role="group" aria-label="Page theme" data-i18n-aria-label="aria.pageTheme">
+              <button
+                type="button"
+                class="page-theme-option"
+                data-page-theme-mode="auto"
+                aria-pressed="true"
+                title="Follow system"
+                data-i18n-title="pageTheme.auto"
+                data-i18n-aria-label="pageTheme.auto"
+              >
+                <svg viewBox="0 0 16 16" aria-hidden="true">
+                  <rect x="1.5" y="2.5" width="13" height="9" rx="1" />
+                  <path d="M5.5 14h5M8 11.5V14" />
+                </svg>
+              </button>
+              <button
+                type="button"
+                class="page-theme-option"
+                data-page-theme-mode="light"
+                aria-pressed="false"
+                title="Light"
+                data-i18n-title="pageTheme.light"
+                data-i18n-aria-label="pageTheme.light"
+              >
+                <svg viewBox="0 0 16 16" aria-hidden="true">
+                  <circle cx="8" cy="8" r="3" />
+                  <path d="M8 1v1.6M8 13.4V15M1 8h1.6M13.4 8H15M3 3l1.1 1.1M11.9 11.9 13 13M13 3l-1.1 1.1M4.1 11.9 3 13" />
+                </svg>
+              </button>
+              <button
+                type="button"
+                class="page-theme-option"
+                data-page-theme-mode="dark"
+                aria-pressed="false"
+                title="Dark"
+                data-i18n-title="pageTheme.dark"
+                data-i18n-aria-label="pageTheme.dark"
+              >
+                <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M13.3 10.1A5.8 5.8 0 0 1 5.9 2.7 5.8 5.8 0 1 0 13.3 10.1Z" /></svg>
+              </button>
+            </div>
+            <div class="language-switch" role="group" aria-label="Page language" data-i18n-aria-label="aria.pageLanguage">
+              <button type="button" class="language-option" data-page-lang="en" aria-pressed="true">EN</button>
+              <button type="button" class="language-option" data-page-lang="zh" aria-pressed="false">中文</button>
+            </div>
+          </div>
+        </nav>
+      </header>
 
-		<main>
-			<section class="hero" aria-labelledby="hero-title">
-				<div class="hero-heading">
-					<p class="eyebrow" data-i18n="hero.eyebrow">SVG chart builder</p>
-					<h1 id="hero-title">
-						<span data-i18n="hero.title1">Package history,</span><br>
-						<span data-i18n="hero.title2">ready to embed.</span>
-					</h1>
-				</div>
-				<div class="hero-copy">
-					<p data-i18n="hero.lede">Turn any SiYuan bazaar package into a live trend chart. Choose the metrics, range, and finish, then copy the code into your README.</p>
-					<p class="hero-note" data-i18n="hero.note">Every chart is one static SVG you can paste straight into a README, with no scripts or keys.</p>
-				</div>
-			</section>
+      <main>
+        <section class="hero" aria-labelledby="hero-title">
+          <div class="hero-heading">
+            <p class="eyebrow" data-i18n="hero.eyebrow">SVG chart builder</p>
+            <h1 id="hero-title">
+              <span data-i18n="hero.title1">Package history,</span><br />
+              <span data-i18n="hero.title2">ready to embed.</span>
+            </h1>
+          </div>
+          <div class="hero-copy">
+            <p data-i18n="hero.lede">
+              Turn any SiYuan bazaar package into a live trend chart. Choose the metrics, range, and finish, then copy the code into your README.
+            </p>
+            <p class="hero-note" data-i18n="hero.note">Every chart is one static SVG you can paste straight into a README, with no scripts or keys.</p>
+          </div>
+        </section>
 
-			<section id="builder" class="builder-section" aria-labelledby="builder-title" tabindex="-1">
-				<div class="section-heading">
-					<div class="section-title">
-						<span class="section-step" aria-hidden="true">01</span>
-						<h2 id="builder-title" data-i18n="builder.title">Build the chart</h2>
-					</div>
-					<p class="section-note" data-i18n="builder.note">The sample parameters are a good starting point.</p>
-				</div>
+        <section id="builder" class="builder-section" aria-labelledby="builder-title" tabindex="-1">
+          <div class="section-heading">
+            <div class="section-title">
+              <span class="section-step" aria-hidden="true">01</span>
+              <h2 id="builder-title" data-i18n="builder.title">Build the chart</h2>
+            </div>
+            <p class="section-note" data-i18n="builder.note">The sample parameters are a good starting point.</p>
+          </div>
 
-				<form id="chart-form" class="control-deck" novalidate>
-					<div class="control-row">
-						<div class="control-label">
-							<label for="repo" data-i18n="field.repo">Repository</label>
-							<p id="repo-hint" data-i18n="field.repoHint">owner/repo or a full GitHub URL</p>
-						</div>
-						<div class="control-input">
-							<input id="repo" name="repo" type="text" value="wmy2981/ai-title-siyuan" placeholder="owner/repo" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" aria-describedby="repo-hint repo-error">
-							<p id="repo-error" class="field-error" aria-live="polite" hidden></p>
-						</div>
-					</div>
+          <form id="chart-form" class="control-deck" novalidate>
+            <div class="control-row">
+              <div class="control-label">
+                <label for="repo" data-i18n="field.repo">Repository</label>
+                <p id="repo-hint" data-i18n="field.repoHint">owner/repo or a full GitHub URL</p>
+              </div>
+              <div class="control-input">
+                <input
+                  id="repo"
+                  name="repo"
+                  type="text"
+                  value="wmy2981/ai-title-siyuan"
+                  placeholder="owner/repo"
+                  autocomplete="off"
+                  autocapitalize="none"
+                  autocorrect="off"
+                  spellcheck="false"
+                  aria-describedby="repo-hint repo-error"
+                />
+                <p id="repo-error" class="field-error" aria-live="polite" hidden></p>
+              </div>
+            </div>
 
-					<div class="control-row">
-						<div class="control-label">
-							<span id="metrics-label" data-i18n="field.metrics">Metrics</span>
-							<p data-i18n="field.metricsHint">Choose one or more. Downloads use the left axis; ratings use the right.</p>
-						</div>
-						<div class="control-input" role="group" aria-labelledby="metrics-label">
-							<div class="metric-options">
-								<label class="metric-option">
-									<input type="checkbox" name="metrics" value="downloads" checked>
-									<span class="metric-dot metric-dot-downloads" aria-hidden="true"></span>
-									<span data-i18n="metric.downloads">Downloads</span>
-								</label>
-								<label class="metric-option">
-									<input type="checkbox" name="metrics" value="rating">
-									<span class="metric-dot metric-dot-rating" aria-hidden="true"></span>
-									<span data-i18n="metric.rating">Rating</span>
-								</label>
-								<label class="metric-option">
-									<input type="checkbox" name="metrics" value="ratings">
-									<span class="metric-dot metric-dot-ratings" aria-hidden="true"></span>
-									<span data-i18n="metric.ratings">Ratings</span>
-								</label>
-							</div>
-						</div>
-					</div>
+            <div class="control-row">
+              <div class="control-label">
+                <span id="metrics-label" data-i18n="field.metrics">Metrics</span>
+                <p data-i18n="field.metricsHint">Choose one or more. Downloads use the left axis; ratings use the right.</p>
+              </div>
+              <div class="control-input" role="group" aria-labelledby="metrics-label">
+                <div class="metric-options">
+                  <label class="metric-option">
+                    <input type="checkbox" name="metrics" value="downloads" checked />
+                    <span class="metric-dot metric-dot-downloads" aria-hidden="true"></span>
+                    <span data-i18n="metric.downloads">Downloads</span>
+                  </label>
+                  <label class="metric-option">
+                    <input type="checkbox" name="metrics" value="rating" />
+                    <span class="metric-dot metric-dot-rating" aria-hidden="true"></span>
+                    <span data-i18n="metric.rating">Rating</span>
+                  </label>
+                  <label class="metric-option">
+                    <input type="checkbox" name="metrics" value="ratings" />
+                    <span class="metric-dot metric-dot-ratings" aria-hidden="true"></span>
+                    <span data-i18n="metric.ratings">Ratings</span>
+                  </label>
+                </div>
+              </div>
+            </div>
 
-					<div class="control-row">
-						<div class="control-label">
-							<span id="range-label" data-i18n="field.range">Time range</span>
-							<p data-i18n="field.rangeHint">UTC dates. Leave one empty for an open-ended range.</p>
-						</div>
-						<div class="control-input">
-							<div class="segmented" role="radiogroup" aria-labelledby="range-label">
-								<label class="segment"><input type="radio" name="range" value="30d"><span data-i18n="range.30d">30 days</span></label>
-								<label class="segment"><input type="radio" name="range" value="90d" checked><span data-i18n="range.90d">90 days</span></label>
-								<label class="segment"><input type="radio" name="range" value="1y"><span data-i18n="range.1y">1 year</span></label>
-								<label class="segment"><input type="radio" name="range" value="all"><span data-i18n="range.all">All time</span></label>
-								<label class="segment"><input type="radio" name="range" value="custom"><span data-i18n="range.custom">Custom</span></label>
-							</div>
-							<div id="custom-dates" class="custom-dates" hidden>
-								<label class="date-field">
-									<span data-i18n="field.start">Start</span>
-									<input id="start" name="start" type="date" aria-describedby="date-error">
-								</label>
-								<span class="date-separator" aria-hidden="true">→</span>
-								<label class="date-field">
-									<span data-i18n="field.end">End</span>
-									<input id="end" name="end" type="date" aria-describedby="date-error">
-								</label>
-							</div>
-							<p id="date-error" class="field-error" aria-live="polite" hidden></p>
-						</div>
-					</div>
+            <div class="control-row">
+              <div class="control-label">
+                <span id="range-label" data-i18n="field.range">Time range</span>
+                <p data-i18n="field.rangeHint">UTC dates. Leave one empty for an open-ended range.</p>
+              </div>
+              <div class="control-input">
+                <div class="segmented" role="radiogroup" aria-labelledby="range-label">
+                  <label class="segment"><input type="radio" name="range" value="30d" /><span data-i18n="range.30d">30 days</span></label>
+                  <label class="segment"><input type="radio" name="range" value="90d" checked /><span data-i18n="range.90d">90 days</span></label>
+                  <label class="segment"><input type="radio" name="range" value="1y" /><span data-i18n="range.1y">1 year</span></label>
+                  <label class="segment"><input type="radio" name="range" value="all" /><span data-i18n="range.all">All time</span></label>
+                  <label class="segment"><input type="radio" name="range" value="custom" /><span data-i18n="range.custom">Custom</span></label>
+                </div>
+                <div id="custom-dates" class="custom-dates" hidden>
+                  <label class="date-field">
+                    <span data-i18n="field.start">Start</span>
+                    <input id="start" name="start" type="date" aria-describedby="date-error" />
+                  </label>
+                  <span class="date-separator" aria-hidden="true">→</span>
+                  <label class="date-field">
+                    <span data-i18n="field.end">End</span>
+                    <input id="end" name="end" type="date" aria-describedby="date-error" />
+                  </label>
+                </div>
+                <p id="date-error" class="field-error" aria-live="polite" hidden></p>
+              </div>
+            </div>
 
-					<div class="control-row">
-						<div class="control-label">
-							<span id="appearance-label" data-i18n="field.appearance">Appearance</span>
-							<p data-i18n="field.appearanceHint">Chart theme, language, and output size.</p>
-						</div>
-						<div class="control-input appearance-grid" role="group" aria-labelledby="appearance-label">
-							<fieldset class="mini-field">
-								<legend data-i18n="field.theme">Theme</legend>
-								<div class="segmented">
-									<label class="segment"><input type="radio" name="theme" value="auto" checked><span data-i18n="theme.auto">Auto</span></label>
-									<label class="segment"><input type="radio" name="theme" value="light"><span data-i18n="theme.light">Light</span></label>
-									<label class="segment"><input type="radio" name="theme" value="dark"><span data-i18n="theme.dark">Dark</span></label>
-								</div>
-							</fieldset>
+            <div class="control-row">
+              <div class="control-label">
+                <span id="appearance-label" data-i18n="field.appearance">Appearance</span>
+                <p data-i18n="field.appearanceHint">Chart theme, language, and output size.</p>
+              </div>
+              <div class="control-input appearance-grid" role="group" aria-labelledby="appearance-label">
+                <fieldset class="mini-field">
+                  <legend data-i18n="field.theme">Theme</legend>
+                  <div class="segmented">
+                    <label class="segment"><input type="radio" name="theme" value="auto" checked /><span data-i18n="theme.auto">Auto</span></label>
+                    <label class="segment"><input type="radio" name="theme" value="light" /><span data-i18n="theme.light">Light</span></label>
+                    <label class="segment"><input type="radio" name="theme" value="dark" /><span data-i18n="theme.dark">Dark</span></label>
+                  </div>
+                </fieldset>
 
-							<div class="mini-field">
-								<label for="lang" data-i18n="field.language">Chart language</label>
-								<select id="lang" name="lang">
-									<option value="auto" data-i18n="lang.auto" selected>Auto (browser)</option>
-									<option value="en" data-i18n="lang.en">English</option>
-									<option value="zh" data-i18n="lang.zh">中文</option>
-								</select>
-							</div>
+                <div class="mini-field">
+                  <label for="lang" data-i18n="field.language">Chart language</label>
+                  <select id="lang" name="lang">
+                    <option value="auto" data-i18n="lang.auto" selected>Auto (browser)</option>
+                    <option value="en" data-i18n="lang.en">English</option>
+                    <option value="zh" data-i18n="lang.zh">中文</option>
+                  </select>
+                </div>
 
-							<div class="mini-field size-field">
-								<span class="mini-label" data-i18n="field.size">Size</span>
-								<div class="size-inputs">
-									<label class="number-field">
-										<span data-i18n="field.width">Width</span>
-										<span class="number-wrap"><input id="width" name="width" type="number" min="320" max="1600" step="1" value="800" inputmode="numeric"><span class="unit">px</span></span>
-									</label>
-									<label class="number-field">
-										<span data-i18n="field.height">Height</span>
-										<span class="number-wrap"><input id="height" name="height" type="number" min="200" max="1000" step="1" value="400" inputmode="numeric"><span class="unit">px</span></span>
-									</label>
-								</div>
-							</div>
-						</div>
-					</div>
+                <div class="mini-field size-field">
+                  <span class="mini-label" data-i18n="field.size">Size</span>
+                  <div class="size-inputs">
+                    <label class="number-field">
+                      <span data-i18n="field.width">Width</span>
+                      <span class="number-wrap"
+                        ><input id="width" name="width" type="number" min="320" max="1600" step="1" value="800" inputmode="numeric" /><span class="unit"
+                          >px</span
+                        ></span
+                      >
+                    </label>
+                    <label class="number-field">
+                      <span data-i18n="field.height">Height</span>
+                      <span class="number-wrap"
+                        ><input id="height" name="height" type="number" min="200" max="1000" step="1" value="400" inputmode="numeric" /><span class="unit"
+                          >px</span
+                        ></span
+                      >
+                    </label>
+                  </div>
+                </div>
+              </div>
+            </div>
 
-					<div class="control-row">
-						<div class="control-label">
-							<span data-i18n="field.details">Details</span>
-							<p data-i18n="field.detailsHint">Optional labels and chart marks. Area fill applies to downloads.</p>
-						</div>
-						<div class="control-input">
-							<div class="toggle-grid">
-								<label class="toggle">
-									<span data-i18n="toggle.title">Title</span>
-									<input type="checkbox" name="title" checked>
-									<span class="switch" aria-hidden="true"></span>
-								</label>
-								<label class="toggle">
-									<span data-i18n="toggle.legend">Legend</span>
-									<input type="checkbox" name="legend" checked>
-									<span class="switch" aria-hidden="true"></span>
-								</label>
-								<label class="toggle">
-									<span data-i18n="toggle.grid">Grid</span>
-									<input type="checkbox" name="grid" checked>
-									<span class="switch" aria-hidden="true"></span>
-								</label>
-								<label class="toggle">
-									<span data-i18n="toggle.area">Area fill</span>
-									<input type="checkbox" name="area" checked>
-									<span class="switch" aria-hidden="true"></span>
-								</label>
-							</div>
-						</div>
-					</div>
-				</form>
-			</section>
+            <div class="control-row">
+              <div class="control-label">
+                <span data-i18n="field.details">Details</span>
+                <p data-i18n="field.detailsHint">Optional labels and chart marks. Area fill applies to downloads.</p>
+              </div>
+              <div class="control-input">
+                <div class="toggle-grid">
+                  <label class="toggle">
+                    <span data-i18n="toggle.title">Title</span>
+                    <input type="checkbox" name="title" checked />
+                    <span class="switch" aria-hidden="true"></span>
+                  </label>
+                  <label class="toggle">
+                    <span data-i18n="toggle.legend">Legend</span>
+                    <input type="checkbox" name="legend" checked />
+                    <span class="switch" aria-hidden="true"></span>
+                  </label>
+                  <label class="toggle">
+                    <span data-i18n="toggle.grid">Grid</span>
+                    <input type="checkbox" name="grid" checked />
+                    <span class="switch" aria-hidden="true"></span>
+                  </label>
+                  <label class="toggle">
+                    <span data-i18n="toggle.area">Area fill</span>
+                    <input type="checkbox" name="area" checked />
+                    <span class="switch" aria-hidden="true"></span>
+                  </label>
+                </div>
+              </div>
+            </div>
+          </form>
+        </section>
 
-			<section class="preview-section" aria-labelledby="preview-title">
-				<div class="section-heading">
-					<div class="section-title">
-						<span class="section-step" aria-hidden="true">02</span>
-						<h2 id="preview-title" data-i18n="preview.title">Live preview</h2>
-					</div>
-					<div class="preview-actions">
-						<span class="render-state" id="render-state">
-							<span class="render-dot" aria-hidden="true"></span>
-							<span id="render-label" data-i18n="preview.rendering">Rendering</span>
-						</span>
-						<a id="open-chart" class="text-link" href="#" target="_blank" rel="noreferrer" data-i18n="preview.open">Open SVG</a>
-					</div>
-				</div>
+        <section class="preview-section" aria-labelledby="preview-title">
+          <div class="section-heading">
+            <div class="section-title">
+              <span class="section-step" aria-hidden="true">02</span>
+              <h2 id="preview-title" data-i18n="preview.title">Live preview</h2>
+            </div>
+            <div class="preview-actions">
+              <span class="render-state" id="render-state">
+                <span class="render-dot" aria-hidden="true"></span>
+                <span id="render-label" data-i18n="preview.rendering">Rendering</span>
+              </span>
+              <a id="open-chart" class="text-link" href="#" target="_blank" rel="noreferrer" data-i18n="preview.open">Open SVG</a>
+            </div>
+          </div>
 
-				<figure class="plot-figure">
-					<div class="plot-toolbar">
-						<span id="plot-endpoint" class="plot-endpoint">/api/chart/wmy2981/ai-title-siyuan</span>
-						<span class="plot-type">image/svg+xml</span>
-					</div>
-					<div id="plot-stage" class="plot-stage" aria-busy="true">
-						<img id="chart-preview" alt="" width="800" height="400">
-						<p id="preview-empty" class="plot-empty" role="status" hidden></p>
-					</div>
-					<figcaption class="stage-caption" data-i18n="preview.caption">The preview and snippets use this site's chart endpoint.</figcaption>
-				</figure>
-			</section>
+          <figure class="plot-figure">
+            <div class="plot-toolbar">
+              <span id="plot-endpoint" class="plot-endpoint">/api/chart/wmy2981/ai-title-siyuan</span>
+              <span class="plot-type">image/svg+xml</span>
+            </div>
+            <div id="plot-stage" class="plot-stage" aria-busy="true">
+              <img id="chart-preview" alt="" width="800" height="400" />
+              <p id="preview-empty" class="plot-empty" role="status" hidden></p>
+            </div>
+            <figcaption class="stage-caption" data-i18n="preview.caption">The preview and snippets use this site's chart endpoint.</figcaption>
+          </figure>
+        </section>
 
-			<section class="embed-section" aria-labelledby="embed-title">
-				<div class="section-heading">
-					<div class="section-title">
-						<span class="section-step" aria-hidden="true">03</span>
-						<h2 id="embed-title" data-i18n="embed.title">Embed code</h2>
-					</div>
-					<p class="section-note" data-i18n="embed.note">Copy the chart URL or use a snippet. Chart style follows your choice in the builder.</p>
-				</div>
+        <section class="embed-section" aria-labelledby="embed-title">
+          <div class="section-heading">
+            <div class="section-title">
+              <span class="section-step" aria-hidden="true">03</span>
+              <h2 id="embed-title" data-i18n="embed.title">Embed code</h2>
+            </div>
+            <p class="section-note" data-i18n="embed.note">Copy the chart URL or use a snippet. Chart style follows your choice in the builder.</p>
+          </div>
 
-				<!-- Each snippet carries the same copy and confirmation icon pair. -->
-				<div class="snippet-list">
-					<article class="snippet">
-						<div class="snippet-head">
-							<h3 data-i18n="snippet.url">Link</h3>
-							<button type="button" class="copy-button" data-copy-key="url" data-i18n-title="aria.copyUrl" data-i18n-aria-label="aria.copyUrl" disabled>
-								<svg class="copy-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><rect x="5.5" y="5.5" width="8.5" height="8.5" rx="1.2"/><path d="M10.5 5.5V4.25c0-.69-.56-1.25-1.25-1.25H4.25C3.56 3 3 3.56 3 4.25v5c0 .69.56 1.25 1.25 1.25H5.5"/></svg>
-								<svg class="check-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M3.2 8.4l3 3 6.6-6.8"/></svg>
-							</button>
-						</div>
-						<pre><code id="code-url"></code></pre>
-					</article>
-					<article class="snippet">
-						<div class="snippet-head">
-							<h3 data-i18n="snippet.html">HTML</h3>
-							<button type="button" class="copy-button" data-copy-key="html" data-i18n-title="aria.copyHtml" data-i18n-aria-label="aria.copyHtml" disabled>
-								<svg class="copy-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><rect x="5.5" y="5.5" width="8.5" height="8.5" rx="1.2"/><path d="M10.5 5.5V4.25c0-.69-.56-1.25-1.25-1.25H4.25C3.56 3 3 3.56 3 4.25v5c0 .69.56 1.25 1.25 1.25H5.5"/></svg>
-								<svg class="check-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M3.2 8.4l3 3 6.6-6.8"/></svg>
-							</button>
-						</div>
-						<pre><code id="code-html"></code></pre>
-					</article>
-					<article class="snippet">
-						<div class="snippet-head">
-							<h3 data-i18n="snippet.markdown">Markdown</h3>
-							<button type="button" class="copy-button" data-copy-key="markdown" data-i18n-title="aria.copyMarkdown" data-i18n-aria-label="aria.copyMarkdown" disabled>
-								<svg class="copy-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><rect x="5.5" y="5.5" width="8.5" height="8.5" rx="1.2"/><path d="M10.5 5.5V4.25c0-.69-.56-1.25-1.25-1.25H4.25C3.56 3 3 3.56 3 4.25v5c0 .69.56 1.25 1.25 1.25H5.5"/></svg>
-								<svg class="check-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M3.2 8.4l3 3 6.6-6.8"/></svg>
-							</button>
-						</div>
-						<pre><code id="code-markdown"></code></pre>
-					</article>
-				</div>
-			</section>
-		</main>
+          <!-- Each snippet carries the same copy and confirmation icon pair. -->
+          <div class="snippet-list">
+            <article class="snippet">
+              <div class="snippet-head">
+                <h3 data-i18n="snippet.url">Link</h3>
+                <button type="button" class="copy-button" data-copy-key="url" data-i18n-title="aria.copyUrl" data-i18n-aria-label="aria.copyUrl" disabled>
+                  <svg class="copy-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+                    <rect x="5.5" y="5.5" width="8.5" height="8.5" rx="1.2" />
+                    <path d="M10.5 5.5V4.25c0-.69-.56-1.25-1.25-1.25H4.25C3.56 3 3 3.56 3 4.25v5c0 .69.56 1.25 1.25 1.25H5.5" />
+                  </svg>
+                  <svg class="check-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M3.2 8.4l3 3 6.6-6.8" /></svg>
+                </button>
+              </div>
+              <pre><code id="code-url"></code></pre>
+            </article>
+            <article class="snippet">
+              <div class="snippet-head">
+                <h3 data-i18n="snippet.html">HTML</h3>
+                <button type="button" class="copy-button" data-copy-key="html" data-i18n-title="aria.copyHtml" data-i18n-aria-label="aria.copyHtml" disabled>
+                  <svg class="copy-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+                    <rect x="5.5" y="5.5" width="8.5" height="8.5" rx="1.2" />
+                    <path d="M10.5 5.5V4.25c0-.69-.56-1.25-1.25-1.25H4.25C3.56 3 3 3.56 3 4.25v5c0 .69.56 1.25 1.25 1.25H5.5" />
+                  </svg>
+                  <svg class="check-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M3.2 8.4l3 3 6.6-6.8" /></svg>
+                </button>
+              </div>
+              <pre><code id="code-html"></code></pre>
+            </article>
+            <article class="snippet">
+              <div class="snippet-head">
+                <h3 data-i18n="snippet.markdown">Markdown</h3>
+                <button
+                  type="button"
+                  class="copy-button"
+                  data-copy-key="markdown"
+                  data-i18n-title="aria.copyMarkdown"
+                  data-i18n-aria-label="aria.copyMarkdown"
+                  disabled
+                >
+                  <svg class="copy-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+                    <rect x="5.5" y="5.5" width="8.5" height="8.5" rx="1.2" />
+                    <path d="M10.5 5.5V4.25c0-.69-.56-1.25-1.25-1.25H4.25C3.56 3 3 3.56 3 4.25v5c0 .69.56 1.25 1.25 1.25H5.5" />
+                  </svg>
+                  <svg class="check-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M3.2 8.4l3 3 6.6-6.8" /></svg>
+                </button>
+              </div>
+              <pre><code id="code-markdown"></code></pre>
+            </article>
+          </div>
+        </section>
+      </main>
 
-		<footer class="footer">
-			<p class="footer-note" data-i18n="footer.note">Charts are cached for 30 minutes and refresh behind GitHub's image proxy.</p>
-			<div class="footer-row">
-				<span class="footer-data">
-					<span data-i18n="footer.data">Data from</span>
-					<a href="https://github.com/TCOTC/siyuan-bazaar-stats" target="_blank" rel="noreferrer">TCOTC/siyuan-bazaar-stats</a>.
-				</span>
-				<a class="footer-repo" href="https://github.com/wmy2981/siyuan-bazaar-stats-graph" target="_blank" rel="noreferrer">
-					<svg class="footer-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg>
-					<span data-i18n="footer.source">GitHub repository</span>
-				</a>
-			</div>
-		</footer>
-	</div>
+      <footer class="footer">
+        <p class="footer-note" data-i18n="footer.note">Charts are cached for 30 minutes and refresh behind GitHub's image proxy.</p>
+        <div class="footer-row">
+          <span class="footer-data">
+            <span data-i18n="footer.data">Data from</span>
+            <a href="https://github.com/TCOTC/siyuan-bazaar-stats" target="_blank" rel="noreferrer">TCOTC/siyuan-bazaar-stats</a>.
+          </span>
+          <a class="footer-repo" href="https://github.com/wmy2981/siyuan-bazaar-stats-graph" target="_blank" rel="noreferrer">
+            <svg class="footer-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+              <path
+                d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"
+              />
+            </svg>
+            <span data-i18n="footer.source">GitHub repository</span>
+          </a>
+        </div>
+      </footer>
+    </div>
 
-	<noscript>
-		<p class="noscript">This chart builder needs JavaScript. The chart API still works directly at <code>/api/chart/{owner}/{repo}</code>.</p>
-	</noscript>
+    <noscript>
+      <p class="noscript">This chart builder needs JavaScript. The chart API still works directly at <code>/api/chart/{owner}/{repo}</code>.</p>
+    </noscript>
 
-	<p id="live-status" class="sr-only" aria-live="polite"></p>
-	<script>/*__SCRIPT__*/</script>
-</body>
+    <p id="live-status" class="sr-only" aria-live="polite"></p>
+    <script>
+      /*__SCRIPT__*/
+    </script>
+  </body>
 </html>

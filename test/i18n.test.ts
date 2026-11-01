@@ -23,7 +23,7 @@ describe('error text catalog', () => {
   })
 
   it('uses the same placeholders in both languages and only known values', () => {
-    const placeholders = (text: string) => [...text.matchAll(/\{\{(\w+)\}\}/g)].map(match => match[1]).sort()
+    const placeholders = (text: string) => [...text.matchAll(/\{\{(\w+)\}\}/g)].map((match) => match[1]).sort()
     for (const code of codes) {
       for (const field of ['message', 'hint'] as const) {
         const en = placeholders(ERRORS[code].en[field])
@@ -34,11 +34,11 @@ describe('error text catalog', () => {
   })
 
   it('interpolates values and keeps documentation braces literal', () => {
-    expect(localizeError('packageNotFound', { repo: 'nobody/nothing' }, 'en').hint)
-      .toBe('No bazaar package matches github.com/nobody/nothing. Check owner/repo and package availability.')
+    expect(localizeError('packageNotFound', { repo: 'nobody/nothing' }, 'en').hint).toBe(
+      'No bazaar package matches github.com/nobody/nothing. Check owner/repo and package availability.',
+    )
     expect(localizeError('packageNotFound', { repo: 'nobody/nothing' }, 'zh').hint).toContain('github.com/nobody/nothing')
-    expect(localizeError('outOfRangeParameter', { name: 'height', min: 200, max: 1000 }, 'zh').hint)
-      .toBe('height 必须在 200 到 1000 之间。')
+    expect(localizeError('outOfRangeParameter', { name: 'height', min: 200, max: 1000 }, 'zh').hint).toBe('height 必须在 200 到 1000 之间。')
     expect(localizeError('dataSourceError', { status: 503 }, 'zh').hint).toBe('上游状态码 503，请稍后重试。')
     expect(localizeError('invalidChartUrl', {}, 'en').hint).toContain('/api/chart/{owner}/{repo}')
     for (const code of codes) {

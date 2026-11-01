@@ -52,7 +52,9 @@ async function cachedBytes(url: string, headers?: Record<string, string>): Promi
   try {
     const hit = await caches.default.match(url)
     if (hit) return new Uint8Array(await hit.arrayBuffer())
-  } catch { /* fall through to the network */ }
+  } catch {
+    /* fall through to the network */
+  }
   let response: Response
   try {
     response = await fetch(url, { headers, signal: AbortSignal.timeout(15_000) })
@@ -62,10 +64,15 @@ async function cachedBytes(url: string, headers?: Record<string, string>): Promi
   if (!response.ok) return null
   const bytes = new Uint8Array(await response.arrayBuffer())
   try {
-    await caches.default.put(url, new Response(bytes.slice(), {
-      headers: { 'Content-Type': response.headers.get('content-type') ?? 'application/octet-stream', 'Cache-Control': FONT_CACHE_CONTROL },
-    }))
-  } catch { /* caching is best-effort */ }
+    await caches.default.put(
+      url,
+      new Response(bytes.slice(), {
+        headers: { 'Content-Type': response.headers.get('content-type') ?? 'application/octet-stream', 'Cache-Control': FONT_CACHE_CONTROL },
+      }),
+    )
+  } catch {
+    /* caching is best-effort */
+  }
   return bytes
 }
 

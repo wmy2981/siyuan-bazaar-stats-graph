@@ -6,12 +6,12 @@
  * back as an error card.
  */
 window.ui = SwaggerUIBundle({
-	url: '/openapi.yaml',
-	dom_id: '#swagger-ui',
-	deepLinking: true,
-	supportedSubmitMethods: ['get', 'head'],
-	presets: [SwaggerUIBundle.presets.apis],
-	layout: 'BaseLayout',
-	// The optional validator badge would call a third-party service.
-	validatorUrl: null,
+  url: '/openapi.yaml',
+  dom_id: '#swagger-ui',
+  deepLinking: true,
+  supportedSubmitMethods: ['get', 'head'],
+  presets: [SwaggerUIBundle.presets.apis],
+  layout: 'BaseLayout',
+  // The optional validator badge would call a third-party service.
+  validatorUrl: null,
 })

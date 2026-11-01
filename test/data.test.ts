@@ -5,10 +5,11 @@ import { localizeError } from '../src/i18n'
 
 const summary = { packages: [{ name: 'sample', repo: 'owner/repo' }] }
 const detail = { name: 'sample', repo: 'owner/repo', current: { d: 42 }, history: [{ t: 100, d: 20, x: [1, 0, 0, 0, 1] }] }
-const mockFetch = (routes: Record<string, () => Response>) => vi.spyOn(globalThis, 'fetch').mockImplementation(async input => {
-  const handler = routes[String(input)]
-  return handler?.() ?? new Response('not found', { status: 404 })
-})
+const mockFetch = (routes: Record<string, () => Response>) =>
+  vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+    const handler = routes[String(input)]
+    return handler?.() ?? new Response('not found', { status: 404 })
+  })
 afterEach(() => vi.restoreAllMocks())
 
 describe('package data', () => {
@@ -40,7 +41,13 @@ describe('package data', () => {
   })
   it('matches full GitHub URLs and ignores non-GitHub repos', async () => {
     mockFetch({
-      'https://github.mytemos.com/siyuan-bazaar-stats/data/summary.json': () => Response.json({ packages: [{ name: 'a', repo: 'https://github.com/Owner/Repo.git' }, { name: 'b', repo: 'https://evil.test/owner/repo' }] }),
+      'https://github.mytemos.com/siyuan-bazaar-stats/data/summary.json': () =>
+        Response.json({
+          packages: [
+            { name: 'a', repo: 'https://github.com/Owner/Repo.git' },
+            { name: 'b', repo: 'https://evil.test/owner/repo' },
+          ],
+        }),
       'https://github.mytemos.com/siyuan-bazaar-stats/data/packages/a.json': () => Response.json({ ...detail, name: 'a' }),
     })
     expect((await loadPackage('OWNER/REPO')).history[0]?.d).toBe(20)
@@ -57,7 +64,10 @@ describe('package data', () => {
       'https://raw.githubusercontent.com/TCOTC/siyuan-bazaar-stats/main/data/snapshots/2026-10.jsonl': () => new Response(lines),
     })
     const result = await loadPackage('owner/repo')
-    expect(result.history).toEqual([{ t: 1000, d: 10, a: 4, c: 1 }, { t: 2000, d: 12, a: 4, c: 1 }])
+    expect(result.history).toEqual([
+      { t: 1000, d: 10, a: 4, c: 1 },
+      { t: 2000, d: 12, a: 4, c: 1 },
+    ])
     expect(result.stale).toBe(true)
   })
   it('ignores a detail document for another package and replays snapshots', async () => {
@@ -90,7 +100,11 @@ describe('package data', () => {
       'https://raw.githubusercontent.com/TCOTC/siyuan-bazaar-stats/main/data/snapshots/2026-10.jsonl': () => new Response(lines),
     })
     const result = await loadPackage('owner/repo')
-    expect(result.history).toEqual([{ t: 1000, d: 10 }, { t: 2000, d: 12 }, { t: 3000, d: 14, a: 1, c: 1 }])
+    expect(result.history).toEqual([
+      { t: 1000, d: 10 },
+      { t: 2000, d: 12 },
+      { t: 3000, d: 14, a: 1, c: 1 },
+    ])
   })
   it('encodes package names that contain spaces or plus signs', async () => {
     mockFetch({
@@ -105,7 +119,7 @@ describe('package data', () => {
       'https://github.mytemos.com/siyuan-bazaar-stats/data/packages/sample.json': () => Response.json({ ...detail, schema: 2 }),
       'https://raw.githubusercontent.com/TCOTC/siyuan-bazaar-stats/main/data/snapshots/2026-10.jsonl': () => new Response(''),
     })
-    const error = await loadPackage('owner/repo').catch(cause => cause as ChartError)
+    const error = await loadPackage('owner/repo').catch((cause) => cause as ChartError)
     expect(error.code).toBe('unsupportedSchema')
     expect(error.values).toEqual({ schema: '2', supported: '1' })
     expect(localizeError(error.code, error.values, 'zh').hint).toContain('2')
@@ -138,7 +152,7 @@ describe('package data', () => {
       'https://github.mytemos.com/siyuan-bazaar-stats/data/summary.json': () => new Response('down', { status: 503 }),
       'https://siyuan-bazaar-stats.mytemos.com/data/summary.json': () => new Response('down', { status: 503 }),
     })
-    const error = await loadPackage('owner/repo').catch(cause => cause as ChartError)
+    const error = await loadPackage('owner/repo').catch((cause) => cause as ChartError)
     expect(error).toBeInstanceOf(ChartError)
     expect(error.code).toBe('dataSourceError')
     expect(error.values).toEqual({ status: 503 })

@@ -4,79 +4,79 @@
  * Nothing here may reference scripts, external assets or hover state: the output is
  * served as an image and cached by GitHub's image proxy.
  */
-export type Metric = 'downloads' | 'rating' | 'ratings';
+export type Metric = 'downloads' | 'rating' | 'ratings'
 /** `transparent` drops the card; the fixed themes paint it opaquely. */
-export type Theme = 'light' | 'dark' | 'auto' | 'transparent';
-export type ChartLanguage = 'en' | 'zh' | 'auto';
-type ResolvedLanguage = Exclude<ChartLanguage, 'auto'>;
+export type Theme = 'light' | 'dark' | 'auto' | 'transparent'
+export type ChartLanguage = 'en' | 'zh' | 'auto'
+type ResolvedLanguage = Exclude<ChartLanguage, 'auto'>
 
 /** One observation: Unix milliseconds plus whichever metrics were recorded. */
 export interface ChartPoint {
-  t: number;
-  d?: number;
-  a?: number;
-  c?: number;
+  t: number
+  d?: number
+  a?: number
+  c?: number
 }
 
 /** Normalised chart parameters, already validated by parseOptions(). */
 export interface ChartOptions {
-  width: number;
-  height: number;
-  theme: Theme;
-  metrics: Metric[];
-  title: boolean;
-  legend: boolean;
-  grid: boolean;
-  area: boolean;
+  width: number
+  height: number
+  theme: Theme
+  metrics: Metric[]
+  title: boolean
+  legend: boolean
+  grid: boolean
+  area: boolean
   /** Whether to show the upstream last-updated line; omitted means true. */
-  updated?: boolean;
+  updated?: boolean
   /**
    * Upstream last-observation time in Unix milliseconds, taken from the full
    * history rather than the rendered slice. Omitted falls back to the newest
    * rendered point so direct callers keep working.
    */
-  lastUpdated?: number;
-  lang: ChartLanguage;
-  repo: string;
+  lastUpdated?: number
+  lang: ChartLanguage
+  repo: string
   /**
    * Omit the palette background card and the background-coloured decorations so
    * a rasteriser can emit a genuinely transparent image. Query callers set it
    * with `theme=transparent`; the PNG route sets it directly after resolving the
    * theme to a fixed palette. See src/png.ts.
    */
-  transparent?: boolean;
+  transparent?: boolean
   /**
    * Fill the card edge to edge instead of rounding its corners, so a raster has
    * no partly transparent pixels for an image viewer to tint. The PNG route sets
    * it for a fixed theme. See src/png.ts.
    */
-  squareCard?: boolean;
+  squareCard?: boolean
 }
 
 /** A metric value resolved from a ChartPoint, tagged with its index in the history. */
-type Datum = { t: number; value: number; index: number };
+type Datum = { t: number; value: number; index: number }
 /** A run of consecutive observations; a gap in the data starts a new segment. */
-type Segment = { start: number; points: Datum[] };
+type Segment = { start: number; points: Datum[] }
 /** Value range and tick positions for a single axis. */
-type Scale = { min: number; max: number; ticks: number[] };
+type Scale = { min: number; max: number; ticks: number[] }
 
 /** System font stack: no webfont request, so the SVG stays self-contained. */
-const FONT = "-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif";
+const FONT = "-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif"
 /** Legend geometry, shared by the row layout and the renderer. */
-const LEGEND_LINE_WIDTH = 12;
-const LEGEND_TEXT_OFFSET = 18;
-const LEGEND_ITEM_GAP = 22;
-const LEGEND_ROW_HEIGHT = 15;
+const LEGEND_LINE_WIDTH = 12
+const LEGEND_TEXT_OFFSET = 18
+const LEGEND_ITEM_GAP = 22
+const LEGEND_ROW_HEIGHT = 15
 /** Last-updated line geometry: small muted text in the bottom-right corner. */
-const UPDATED_FONT_SIZE = 9;
-const UPDATED_ROW_HEIGHT = 15;
-const UPDATED_GAP = 12;
+const UPDATED_FONT_SIZE = 9
+const UPDATED_ROW_HEIGHT = 15
+const UPDATED_GAP = 12
 /** One colour per metric; the legend reuses these exact values. */
 const COLORS: Record<Metric, string> = {
   downloads: '#0f9f8f',
   rating: '#8264c6',
   ratings: '#d48a17',
-};
+}
 /**
  * Dotted style for the ratings count line when it shares the right axis with the
  * rating average.
@@ -88,7 +88,7 @@ const COLORS: Record<Metric, string> = {
  * the orange dots stay visible on top. The legend swatch reuses this exact
  * pattern and cap so legend and line always match.
  */
-const RATINGS_DASHARRAY = '0.5 6';
+const RATINGS_DASHARRAY = '0.5 6'
 /**
  * Width of the background-coloured halo drawn under every line.
  *
@@ -96,118 +96,112 @@ const RATINGS_DASHARRAY = '0.5 6';
  * another metric's line; it only lifts the lines off the grid and the downloads
  * area fill, keeping crossing or coinciding lines crisp in both themes.
  */
-const HALO_STROKE_WIDTH = 5;
+const HALO_STROKE_WIDTH = 5
 /** Axis labels; both languages are inlined because auto ships one document. */
 const LABELS: Record<Metric, { en: string; zh: string }> = {
   downloads: { en: 'Downloads', zh: '下载量' },
   rating: { en: 'Rating', zh: '评分' },
   ratings: { en: 'Ratings', zh: '评分数' },
-};
+}
 
 /** Theme palettes. The automatic theme emits both and switches with prefers-color-scheme. */
-type PaletteKey = 'background' | 'foreground' | 'title' | 'grid' | 'muted';
+type PaletteKey = 'background' | 'foreground' | 'title' | 'grid' | 'muted'
 const PALETTE: Record<'light' | 'dark', Record<PaletteKey, string>> = {
   light: { background: '#f5f8fb', foreground: '#506579', title: '#17324d', grid: '#dce5ed', muted: '#8a99a8' },
   dark: { background: '#18232f', foreground: '#d5e2ed', title: '#dcebf7', grid: '#344453', muted: '#8fa0ae' },
-};
+}
 /** Both themes ship in one document, so the cached SVG follows the reader's colour preference. */
 /**
  * Both palettes are declared as CSS custom properties on the root element and
  * switched with a prefers-color-scheme media query, so one cached document can
  * serve readers in either appearance without a second request.
  */
-const AUTO_STYLE = `<style>svg{--chart-background:${PALETTE.light.background};--chart-foreground:${PALETTE.light.foreground};--chart-title:${PALETTE.light.title};--chart-grid:${PALETTE.light.grid};--chart-muted:${PALETTE.light.muted}}.chart-background{fill:var(--chart-background)}.chart-foreground{fill:var(--chart-foreground)}.chart-title{fill:var(--chart-title)}.chart-grid{stroke:var(--chart-grid)}.chart-muted{fill:var(--chart-muted)}.chart-ring{stroke:var(--chart-background)}@media (prefers-color-scheme:dark){svg{--chart-background:${PALETTE.dark.background};--chart-foreground:${PALETTE.dark.foreground};--chart-title:${PALETTE.dark.title};--chart-grid:${PALETTE.dark.grid};--chart-muted:${PALETTE.dark.muted}}}</style>`;
+const AUTO_STYLE = `<style>svg{--chart-background:${PALETTE.light.background};--chart-foreground:${PALETTE.light.foreground};--chart-title:${PALETTE.light.title};--chart-grid:${PALETTE.light.grid};--chart-muted:${PALETTE.light.muted}}.chart-background{fill:var(--chart-background)}.chart-foreground{fill:var(--chart-foreground)}.chart-title{fill:var(--chart-title)}.chart-grid{stroke:var(--chart-grid)}.chart-muted{fill:var(--chart-muted)}.chart-ring{stroke:var(--chart-background)}@media (prefers-color-scheme:dark){svg{--chart-background:${PALETTE.dark.background};--chart-foreground:${PALETTE.dark.foreground};--chart-title:${PALETTE.dark.title};--chart-grid:${PALETTE.dark.grid};--chart-muted:${PALETTE.dark.muted}}}</style>`
 
 /**
  * Themes that let one cached document follow the reader: `auto` switches the
  * card, text and grid between light and dark, `transparent` keeps that switch
  * for text and grid but paints no background at all.
  */
-const followsReader = (theme: Theme): boolean => theme === 'auto' || theme === 'transparent';
+const followsReader = (theme: Theme): boolean => theme === 'auto' || theme === 'transparent'
 /** A transparent chart omits its card and every background-coloured decoration. */
-const isTransparent = (options: ChartOptions): boolean => options.transparent === true || options.theme === 'transparent';
+const isTransparent = (options: ChartOptions): boolean => options.transparent === true || options.theme === 'transparent'
 
 /** Escape text before it is interpolated into SVG markup. */
-const escapeXml = (value: unknown): string => String(value)
-  .replaceAll('&', '&amp;')
-  .replaceAll('<', '&lt;')
-  .replaceAll('>', '&gt;')
-  .replaceAll('"', '&quot;')
-  .replaceAll("'", '&apos;');
+const escapeXml = (value: unknown): string =>
+  String(value).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&apos;')
 /** Round coordinates to two decimals: precise enough, and it keeps the markup small. */
-const num = (value: number): string => String(Math.round(value * 100) / 100);
+const num = (value: number): string => String(Math.round(value * 100) / 100)
 /** Render timestamps as UTC dates, matching how the upstream data is bucketed. */
-const date = (timestamp: number): string => new Date(timestamp).toISOString().slice(0, 10);
+const date = (timestamp: number): string => new Date(timestamp).toISOString().slice(0, 10)
 /** Render a timestamp as a full UTC date-time, precise to the second. */
-const dateTime = (timestamp: number): string => `${new Date(timestamp).toISOString().slice(0, 19).replace('T', ' ')} UTC`;
+const dateTime = (timestamp: number): string => `${new Date(timestamp).toISOString().slice(0, 19).replace('T', ' ')} UTC`
 /** Axis and legend values: integers stay bare, fractions keep two decimals. */
-const formatValue = (value: number): string => Number.isInteger(value)
-  ? String(value)
-  : String(Math.round(value * 100) / 100);
+const formatValue = (value: number): string => (Number.isInteger(value) ? String(value) : String(Math.round(value * 100) / 100))
 
 /**
  * Pick a "nice" axis step (1, 2 or 5 times a power of ten) so a count axis keeps
  * roughly four ticks no matter how large the values are.
  */
 function scaleCounts(values: number[]): Scale {
-  const largest = Math.max(0, ...values);
-  if (largest === 0) return { min: 0, max: 1, ticks: [0, 1] };
-  const rough = largest / 4;
-  const power = 10 ** Math.floor(Math.log10(rough));
-  const fraction = rough / power;
-  const step = (fraction <= 1 ? 1 : fraction <= 2 ? 2 : fraction <= 5 ? 5 : 10) * power;
-  const max = Math.ceil(largest / step) * step;
-  const ticks: number[] = [];
-  for (let value = 0; value <= max + step / 2; value += step) ticks.push(value);
-  return { min: 0, max, ticks };
+  const largest = Math.max(0, ...values)
+  if (largest === 0) return { min: 0, max: 1, ticks: [0, 1] }
+  const rough = largest / 4
+  const power = 10 ** Math.floor(Math.log10(rough))
+  const fraction = rough / power
+  const step = (fraction <= 1 ? 1 : fraction <= 2 ? 2 : fraction <= 5 ? 5 : 10) * power
+  const max = Math.ceil(largest / step) * step
+  const ticks: number[] = []
+  for (let value = 0; value <= max + step / 2; value += step) ticks.push(value)
+  return { min: 0, max, ticks }
 }
 
 /** Keep first/last, global extrema, and local extrema in the remaining time buckets. */
 function sample(data: Datum[], limit = 500): Datum[] {
-  if (data.length <= limit) return data;
-  const low = data.reduce((best, point, index) => point.value < data[best].value ? index : best, 0);
-  const high = data.reduce((best, point, index) => point.value > data[best].value ? index : best, 0);
-  const forced = new Set([0, data.length - 1, low, high]);
-  const remaining = data.map((_, index) => index).filter((index) => !forced.has(index));
-  const slots = Math.max(0, limit - forced.size);
-  const buckets = Math.max(1, Math.floor(slots / 2));
+  if (data.length <= limit) return data
+  const low = data.reduce((best, point, index) => (point.value < data[best].value ? index : best), 0)
+  const high = data.reduce((best, point, index) => (point.value > data[best].value ? index : best), 0)
+  const forced = new Set([0, data.length - 1, low, high])
+  const remaining = data.map((_, index) => index).filter((index) => !forced.has(index))
+  const slots = Math.max(0, limit - forced.size)
+  const buckets = Math.max(1, Math.floor(slots / 2))
   for (let bucket = 0; bucket < buckets && slots > 0; bucket++) {
-    const start = Math.floor(bucket * remaining.length / buckets);
-    const end = Math.floor((bucket + 1) * remaining.length / buckets);
-    if (start === end) continue;
-    let bucketLow = start;
-    let bucketHigh = start;
+    const start = Math.floor((bucket * remaining.length) / buckets)
+    const end = Math.floor(((bucket + 1) * remaining.length) / buckets)
+    if (start === end) continue
+    let bucketLow = start
+    let bucketHigh = start
     for (let i = start + 1; i < end; i++) {
-      if (data[remaining[i]].value < data[remaining[bucketLow]].value) bucketLow = i;
-      if (data[remaining[i]].value > data[remaining[bucketHigh]].value) bucketHigh = i;
+      if (data[remaining[i]].value < data[remaining[bucketLow]].value) bucketLow = i
+      if (data[remaining[i]].value > data[remaining[bucketHigh]].value) bucketHigh = i
     }
-    forced.add(remaining[bucketLow]);
-    forced.add(remaining[bucketHigh]);
+    forced.add(remaining[bucketLow])
+    forced.add(remaining[bucketHigh])
   }
-  return [...forced].sort((a, b) => a - b).map((index) => data[index]);
+  return [...forced].sort((a, b) => a - b).map((index) => data[index])
 }
 
 /** Rough advance width in pixels; a Worker has no font metrics to consult. */
 function measureText(text: string, fontSize: number): number {
-  let width = 0;
+  let width = 0
   for (const character of text) {
-    const code = character.codePointAt(0)!;
-    if (code === 32) width += fontSize * 0.32;
-    else if (code > 0xff) width += fontSize;
-    else width += fontSize * 0.6;
+    const code = character.codePointAt(0)!
+    if (code === 32) width += fontSize * 0.32
+    else if (code > 0xff) width += fontSize
+    else width += fontSize * 0.6
   }
-  return width;
+  return width
 }
 
 /** Truncate with an ellipsis until the text fits the given width. */
 function fitText(text: string, width: number, fontSize: number): string {
-  if (measureText(text, fontSize) <= width) return text;
-  let fitted = '';
+  if (measureText(text, fontSize) <= width) return text
+  let fitted = ''
   for (const character of text) {
-    if (measureText(`${fitted}${character}…`, fontSize) > width) break;
-    fitted += character;
+    if (measureText(`${fitted}${character}…`, fontSize) > width) break
+    fitted += character
   }
-  return `${fitted}…`;
+  return `${fitted}…`
 }
 
 /**
@@ -216,74 +210,72 @@ function fitText(text: string, width: number, fontSize: number): string {
  * Each label ends with its axis (L for downloads, R for the right-hand metrics)
  * and the latest value, which is why a metric without data shows an em dash.
  */
-type LegendItem = { metric: Metric; label: string; width: number };
+type LegendItem = { metric: Metric; label: string; width: number }
 
-function legendRows(metrics: Metric[], width: number, lang: 'en' | 'zh',
-  latest: Map<Metric, Datum | undefined>): LegendItem[][] {
+function legendRows(metrics: Metric[], width: number, lang: 'en' | 'zh', latest: Map<Metric, Datum | undefined>): LegendItem[][] {
   const items = metrics.map((metric) => {
-    const value = latest.get(metric);
-    const axis = metric === 'downloads'
-      ? (lang === 'zh' ? '左轴' : 'L')
-      : (lang === 'zh' ? '右轴' : 'R');
-    const label = `${LABELS[metric][lang]} (${axis}) ${value ? formatValue(value.value) : '—'}`;
-    return { metric, label, width: measureText(label, 10) };
-  });
-  const rows: LegendItem[][] = [[]];
-  let used = 0;
+    const value = latest.get(metric)
+    const axis = metric === 'downloads' ? (lang === 'zh' ? '左轴' : 'L') : lang === 'zh' ? '右轴' : 'R'
+    const label = `${LABELS[metric][lang]} (${axis}) ${value ? formatValue(value.value) : '—'}`
+    return { metric, label, width: measureText(label, 10) }
+  })
+  const rows: LegendItem[][] = [[]]
+  let used = 0
   for (const item of items) {
-    const itemWidth = LEGEND_TEXT_OFFSET + item.width + LEGEND_ITEM_GAP;
+    const itemWidth = LEGEND_TEXT_OFFSET + item.width + LEGEND_ITEM_GAP
     if (rows[rows.length - 1].length && used + itemWidth > width) {
-      rows.push([]);
-      used = 0;
+      rows.push([])
+      used = 0
     }
-    rows[rows.length - 1].push(item);
-    used += itemWidth;
+    rows[rows.length - 1].push(item)
+    used += itemWidth
   }
-  return rows;
+  return rows
 }
 
 /** Wrap on character width units, counting CJK characters as two. */
 function wrapText(text: string, maxUnits: number): string[] {
-  const lines: string[] = [];
+  const lines: string[] = []
   for (const sourceLine of text.split(/\r?\n/)) {
-    let line = '';
-    let units = 0;
+    let line = ''
+    let units = 0
     for (const character of sourceLine) {
-      const width = character.codePointAt(0)! > 0xff ? 2 : 1;
+      const width = character.codePointAt(0)! > 0xff ? 2 : 1
       if (line && units + width > maxUnits) {
-        lines.push(line);
-        line = '';
-        units = 0;
+        lines.push(line)
+        line = ''
+        units = 0
       }
-      line += character;
-      units += width;
+      line += character
+      units += width
     }
-    lines.push(line);
+    lines.push(line)
   }
-  return lines;
+  return lines
 }
 
 /** systemLanguage list for the Chinese branch of the <switch> element. */
-const CHINESE_LANGUAGES = 'zh-CN,zh-SG,zh-TW,zh-HK,zh-MO,zh-Hans,zh-Hant,zh';
+const CHINESE_LANGUAGES = 'zh-CN,zh-SG,zh-TW,zh-HK,zh-MO,zh-Hans,zh-Hant,zh'
 
 /** Expected failures render as SVG with HTTP 200 so a README never shows a broken image. */
 function errorBody(message: string, hint: string): string {
-  const lines = wrapText(hint, 96);
-  const fontSize = Math.max(9, Math.min(13, 142 / Math.max(1, lines.length) - 3));
-  const lineHeight = fontSize + 6;
-  const hintSvg = lines.map((line, index) =>
-    `<text x="32" y="${num(79 + index * lineHeight)}" fill="#506579" font-size="${num(fontSize)}">${escapeXml(line)}</text>`).join('');
-  return `<rect width="100%" height="100%" rx="8" fill="#f5f8fb"/><circle cx="34" cy="35" r="10" fill="#c45656"/><text x="34" y="40" text-anchor="middle" fill="#ffffff" font-size="13" font-weight="700">!</text><text x="54" y="41" fill="#17324d" font-size="17" font-weight="600">${escapeXml(fitText(message, 710, 17))}</text>${hintSvg}`;
+  const lines = wrapText(hint, 96)
+  const fontSize = Math.max(9, Math.min(13, 142 / Math.max(1, lines.length) - 3))
+  const lineHeight = fontSize + 6
+  const hintSvg = lines
+    .map((line, index) => `<text x="32" y="${num(79 + index * lineHeight)}" fill="#506579" font-size="${num(fontSize)}">${escapeXml(line)}</text>`)
+    .join('')
+  return `<rect width="100%" height="100%" rx="8" fill="#f5f8fb"/><circle cx="34" cy="35" r="10" fill="#c45656"/><text x="34" y="40" text-anchor="middle" fill="#ffffff" font-size="13" font-weight="700">!</text><text x="54" y="41" fill="#17324d" font-size="17" font-weight="600">${escapeXml(fitText(message, 710, 17))}</text>${hintSvg}`
 }
 
 /** Single-language error document. */
 export function renderErrorChart(message: string, hint: string, kind = 'error', lang: ResolvedLanguage = 'en'): string {
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="800" height="220" viewBox="0 0 800 220" role="img" aria-labelledby="error-title error-hint" data-kind="${escapeXml(kind)}" data-lang="${lang}" font-family="${FONT}"><title id="error-title">${escapeXml(message)}</title><desc id="error-hint">${escapeXml(hint)}</desc>${errorBody(message, hint)}</svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="800" height="220" viewBox="0 0 800 220" role="img" aria-labelledby="error-title error-hint" data-kind="${escapeXml(kind)}" data-lang="${lang}" font-family="${FONT}"><title id="error-title">${escapeXml(message)}</title><desc id="error-hint">${escapeXml(hint)}</desc>${errorBody(message, hint)}</svg>`
 }
 
 /** Bilingual error document; the reader's language selects the branch. */
 export function renderAutoErrorChart(enMessage: string, enHint: string, zhMessage: string, zhHint: string, kind = 'error'): string {
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="800" height="220" viewBox="0 0 800 220" role="img" aria-labelledby="error-title error-hint" data-kind="${escapeXml(kind)}" data-lang="auto" font-family="${FONT}"><title id="error-title">${escapeXml(enMessage)} / ${escapeXml(zhMessage)}</title><desc id="error-hint">${escapeXml(enHint)} / ${escapeXml(zhHint)}</desc><switch><g systemLanguage="${CHINESE_LANGUAGES}" lang="zh-CN">${errorBody(zhMessage, zhHint)}</g><g lang="en">${errorBody(enMessage, enHint)}</g></switch></svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="800" height="220" viewBox="0 0 800 220" role="img" aria-labelledby="error-title error-hint" data-kind="${escapeXml(kind)}" data-lang="auto" font-family="${FONT}"><title id="error-title">${escapeXml(enMessage)} / ${escapeXml(zhMessage)}</title><desc id="error-hint">${escapeXml(enHint)} / ${escapeXml(zhHint)}</desc><switch><g systemLanguage="${CHINESE_LANGUAGES}" lang="zh-CN">${errorBody(zhMessage, zhHint)}</g><g lang="en">${errorBody(enMessage, enHint)}</g></switch></svg>`
 }
 
 /**
@@ -294,12 +286,12 @@ export function renderAutoErrorChart(enMessage: string, enHint: string, zhMessag
  * so a single cached document serves both Chinese and English.
  */
 export function renderChart(points: ChartPoint[], options: ChartOptions): string {
-  if (options.lang !== 'auto') return renderChartDocument(points, options, options.lang);
-  const width = Math.max(1, Number.isFinite(options.width) ? options.width : 800);
-  const height = Math.max(1, Number.isFinite(options.height) ? options.height : 400);
-  const zh = renderChartDocument(points, options, 'zh', true);
-  const en = renderChartDocument(points, options, 'en', true);
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${num(width)}" height="${num(height)}" viewBox="0 0 ${num(width)} ${num(height)}" role="img" aria-labelledby="chart-title chart-desc" data-lang="auto" font-family="${FONT}"><title id="chart-title">${escapeXml(options.repo)}</title><desc id="chart-desc">Repository metrics over time / 仓库指标时间折线图</desc>${followsReader(options.theme) ? AUTO_STYLE : ''}<switch><g systemLanguage="${CHINESE_LANGUAGES}" lang="zh-CN">${zh}</g><g lang="en">${en}</g></switch></svg>`;
+  if (options.lang !== 'auto') return renderChartDocument(points, options, options.lang)
+  const width = Math.max(1, Number.isFinite(options.width) ? options.width : 800)
+  const height = Math.max(1, Number.isFinite(options.height) ? options.height : 400)
+  const zh = renderChartDocument(points, options, 'zh', true)
+  const en = renderChartDocument(points, options, 'en', true)
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${num(width)}" height="${num(height)}" viewBox="0 0 ${num(width)} ${num(height)}" role="img" aria-labelledby="chart-title chart-desc" data-lang="auto" font-family="${FONT}"><title id="chart-title">${escapeXml(options.repo)}</title><desc id="chart-desc">Repository metrics over time / 仓库指标时间折线图</desc>${followsReader(options.theme) ? AUTO_STYLE : ''}<switch><g systemLanguage="${CHINESE_LANGUAGES}" lang="zh-CN">${zh}</g><g lang="en">${en}</g></switch></svg>`
 }
 
 /**
@@ -311,52 +303,52 @@ export function renderChart(points: ChartPoint[], options: ChartOptions): string
  * remaining space to the plot area.
  */
 function renderChartDocument(points: ChartPoint[], options: ChartOptions, lang: ResolvedLanguage, bodyOnly = false): string {
-  const width = Math.max(1, Number.isFinite(options.width) ? options.width : 800);
-  const height = Math.max(1, Number.isFinite(options.height) ? options.height : 400);
-  const metrics = [...new Set(options.metrics)].filter((metric): metric is Metric => metric in COLORS);
+  const width = Math.max(1, Number.isFinite(options.width) ? options.width : 800)
+  const height = Math.max(1, Number.isFinite(options.height) ? options.height : 400)
+  const metrics = [...new Set(options.metrics)].filter((metric): metric is Metric => metric in COLORS)
   /**
    * Rating and ratings share the right axis, so the count line is dotted to stay
    * readable where the two coincide.
    */
-  const dashRatings = metrics.includes('rating') && metrics.includes('ratings');
+  const dashRatings = metrics.includes('rating') && metrics.includes('ratings')
   /** Upstream short keys used in the history payload. */
-  const field: Record<Metric, keyof ChartPoint> = { downloads: 'd', rating: 'a', ratings: 'c' };
+  const field: Record<Metric, keyof ChartPoint> = { downloads: 'd', rating: 'a', ratings: 'c' }
   /** Split each metric at gaps so missing samples are never interpolated. */
-  const series = new Map<Metric, Segment[]>();
+  const series = new Map<Metric, Segment[]>()
   for (const metric of metrics) {
     const data = points
       .flatMap((point, index) => {
-        const value = point[field[metric]];
-        return Number.isFinite(point.t) && Number.isFinite(value)
-          ? [{ t: point.t, value: value as number, index }]
-          : [];
+        const value = point[field[metric]]
+        return Number.isFinite(point.t) && Number.isFinite(value) ? [{ t: point.t, value: value as number, index }] : []
       })
       .filter((point) => point.value >= 0 && (metric !== 'rating' || point.value <= 5))
-      .sort((a, b) => a.t - b.t);
-    const segments: Segment[] = [];
+      .sort((a, b) => a.t - b.t)
+    const segments: Segment[] = []
     for (const point of data) {
-      const previous = segments.at(-1)?.points.at(-1);
-      if (!previous || point.index !== previous.index + 1) segments.push({ start: point.index, points: [] });
-      segments.at(-1)!.points.push(point);
+      const previous = segments.at(-1)?.points.at(-1)
+      if (!previous || point.index !== previous.index + 1) segments.push({ start: point.index, points: [] })
+      segments.at(-1)!.points.push(point)
     }
-    for (const segment of segments) segment.points = sample(segment.points);
-    series.set(metric, segments);
+    for (const segment of segments) segment.points = sample(segment.points)
+    series.set(metric, segments)
   }
   /** The x domain spans the whole history so every series shares one time axis. */
-  const all = [...series.values()].flat().flatMap((segment) => segment.points);
-  const times = points.filter((point) => Number.isFinite(point.t)).map((point) => point.t).sort((a, b) => a - b);
-  const minTime = times[0];
-  const maxTime = times[times.length - 1];
-  const hasTime = times.length > 0;
+  const all = [...series.values()].flat().flatMap((segment) => segment.points)
+  const times = points
+    .filter((point) => Number.isFinite(point.t))
+    .map((point) => point.t)
+    .sort((a, b) => a - b)
+  const minTime = times[0]
+  const maxTime = times[times.length - 1]
+  const hasTime = times.length > 0
 
   /** Plot insets: room for axis labels, the title and the legend. */
-  const left = metrics.includes('downloads') ? Math.min(60, width * 0.18) : 18;
-  const right = metrics.some((metric) => metric !== 'downloads') ? Math.min(65, width * 0.2) : 18;
-  const titleSpace = options.title ? 50 : 14;
+  const left = metrics.includes('downloads') ? Math.min(60, width * 0.18) : 18
+  const right = metrics.some((metric) => metric !== 'downloads') ? Math.min(65, width * 0.2) : 18
+  const titleSpace = options.title ? 50 : 14
   const legend = options.legend
-    ? legendRows(metrics, width - left - right, lang,
-      new Map(metrics.map((metric) => [metric, series.get(metric)?.at(-1)?.points.at(-1)])))
-    : [];
+    ? legendRows(metrics, width - left - right, lang, new Map(metrics.map((metric) => [metric, series.get(metric)?.at(-1)?.points.at(-1)])))
+    : []
   /**
    * The last-updated line reports the upstream data's newest observation, not
    * the newest rendered point and not the render time. It shares the last
@@ -364,106 +356,107 @@ function renderChartDocument(points: ChartPoint[], options: ChartOptions, lang: 
    * drops below the legend and the bottom inset grows by one row so the plot,
    * axis labels and legend all shift up instead of colliding.
    */
-  const lastUpdated = Number.isFinite(options.lastUpdated) ? options.lastUpdated! : maxTime;
-  const showUpdated = options.updated !== false && Number.isFinite(lastUpdated);
-  const updatedText = showUpdated
-    ? (lang === 'zh' ? `最后更新：${dateTime(lastUpdated!)}` : `Last updated: ${dateTime(lastUpdated!)}`)
-    : '';
-  const lastLegendRow = legend.at(-1) ?? [];
-  const lastLegendWidth = lastLegendRow.reduce((sum, item) => sum + LEGEND_TEXT_OFFSET + item.width, 0)
-    + Math.max(0, lastLegendRow.length - 1) * LEGEND_ITEM_GAP;
-  const updatedBelow = showUpdated
-    && (!legend.length || lastLegendWidth + UPDATED_GAP + measureText(updatedText, UPDATED_FONT_SIZE) > width - left - right);
-  const bottom = 27 + Math.max(0, legend.length - 1) * LEGEND_ROW_HEIGHT + (legend.length ? 14 : 0)
-    + (updatedBelow ? UPDATED_ROW_HEIGHT : 0);
-  const plotWidth = Math.max(1, width - left - right);
-  const plotHeight = Math.max(1, height - titleSpace - bottom);
-  const x = (t: number): number => hasTime && maxTime !== minTime
-    ? left + (t - minTime) / (maxTime - minTime) * plotWidth
-    : left + plotWidth / 2;
+  const lastUpdated = Number.isFinite(options.lastUpdated) ? options.lastUpdated! : maxTime
+  const showUpdated = options.updated !== false && Number.isFinite(lastUpdated)
+  const updatedText = showUpdated ? (lang === 'zh' ? `最后更新：${dateTime(lastUpdated!)}` : `Last updated: ${dateTime(lastUpdated!)}`) : ''
+  const lastLegendRow = legend.at(-1) ?? []
+  const lastLegendWidth =
+    lastLegendRow.reduce((sum, item) => sum + LEGEND_TEXT_OFFSET + item.width, 0) + Math.max(0, lastLegendRow.length - 1) * LEGEND_ITEM_GAP
+  const updatedBelow = showUpdated && (!legend.length || lastLegendWidth + UPDATED_GAP + measureText(updatedText, UPDATED_FONT_SIZE) > width - left - right)
+  const bottom = 27 + Math.max(0, legend.length - 1) * LEGEND_ROW_HEIGHT + (legend.length ? 14 : 0) + (updatedBelow ? UPDATED_ROW_HEIGHT : 0)
+  const plotWidth = Math.max(1, width - left - right)
+  const plotHeight = Math.max(1, height - titleSpace - bottom)
+  const x = (t: number): number => (hasTime && maxTime !== minTime ? left + ((t - minTime) / (maxTime - minTime)) * plotWidth : left + plotWidth / 2)
 
   /** Rating is fixed at 1-5; downloads and counts scale to their own maximum. */
-  const countScale = (metric: Metric): Scale => scaleCounts(
-    (series.get(metric) ?? []).flatMap((segment) => segment.points).map((point) => point.value));
+  const countScale = (metric: Metric): Scale => scaleCounts((series.get(metric) ?? []).flatMap((segment) => segment.points).map((point) => point.value))
   const scales: Partial<Record<Metric, Scale>> = {
     downloads: countScale('downloads'),
     rating: { min: 1, max: 5, ticks: [1, 2, 3, 4, 5] },
     ratings: countScale('ratings'),
-  };
+  }
   /** Map a value into the plot area using that metric's own scale. */
   const y = (metric: Metric, value: number): number => {
-    const scale = scales[metric]!;
-    return titleSpace + (scale.max - value) / (scale.max - scale.min) * plotHeight;
-  };
-  const transparent = isTransparent(options);
-  const dynamic = followsReader(options.theme);
-  const palette = options.theme === 'dark' ? PALETTE.dark : PALETTE.light;
+    const scale = scales[metric]!
+    return titleSpace + ((scale.max - value) / (scale.max - scale.min)) * plotHeight
+  }
+  const transparent = isTransparent(options)
+  const dynamic = followsReader(options.theme)
+  const palette = options.theme === 'dark' ? PALETTE.dark : PALETTE.light
   /**
- * Emit a palette value. A fixed theme needs a plain attribute; a document that
- * follows the reader adds the class for the CSS custom property but keeps the
- * inline light value as a fallback for renderers that do not support variables.
- */
+   * Emit a palette value. A fixed theme needs a plain attribute; a document that
+   * follows the reader adds the class for the CSS custom property but keeps the
+   * inline light value as a fallback for renderers that do not support variables.
+   */
   const paint = (name: PaletteKey, kind: 'fill' | 'stroke', cls = `chart-${name}`): string =>
-    dynamic ? `class="${cls}" ${kind}="${PALETTE.light[name]}"` : `${kind}="${palette[name]}"`;
-  const svg: string[] = bodyOnly ? [] : [
-    `<svg xmlns="http://www.w3.org/2000/svg" width="${num(width)}" height="${num(height)}" viewBox="0 0 ${num(width)} ${num(height)}" role="img" aria-labelledby="chart-title chart-desc" data-lang="${lang}" font-family="${FONT}">`,
-    `<title id="chart-title">${escapeXml(options.repo)}</title>`,
-    `<desc id="chart-desc">${escapeXml(lang === 'zh' ? '仓库指标时间折线图' : 'Repository metrics over time')}</desc>`,
-    ...(dynamic ? [AUTO_STYLE] : []),
-  ];
+    dynamic ? `class="${cls}" ${kind}="${PALETTE.light[name]}"` : `${kind}="${palette[name]}"`
+  const svg: string[] = bodyOnly
+    ? []
+    : [
+        `<svg xmlns="http://www.w3.org/2000/svg" width="${num(width)}" height="${num(height)}" viewBox="0 0 ${num(width)} ${num(height)}" role="img" aria-labelledby="chart-title chart-desc" data-lang="${lang}" font-family="${FONT}">`,
+        `<title id="chart-title">${escapeXml(options.repo)}</title>`,
+        `<desc id="chart-desc">${escapeXml(lang === 'zh' ? '仓库指标时间折线图' : 'Repository metrics over time')}</desc>`,
+        ...(dynamic ? [AUTO_STYLE] : []),
+      ]
   // A transparent chart skips the background card entirely: the plot, grid and
   // labels paint directly onto whatever the reader places the image over. A
   // rasterised card is square so that no pixel of the PNG stays see-through.
-  if (!transparent) svg.push(`<rect width="100%" height="100%"${options.squareCard ? '' : ' rx="8"'} ${paint('background', 'fill')}/>`);
+  if (!transparent) svg.push(`<rect width="100%" height="100%"${options.squareCard ? '' : ' rx="8"'} ${paint('background', 'fill')}/>`)
 
   if (options.title) {
-    const room = width - left - 14;
-    const title = fitText(options.repo, room, 15);
-    svg.push(`<text x="${num(left)}" y="23" ${paint('title', 'fill')} font-size="15" font-weight="600">${escapeXml(title)}</text>`);
+    const room = width - left - 14
+    const title = fitText(options.repo, room, 15)
+    svg.push(`<text x="${num(left)}" y="23" ${paint('title', 'fill')} font-size="15" font-weight="600">${escapeXml(title)}</text>`)
   }
 
-  const gridMetric = metrics.includes('downloads') ? 'downloads' : metrics[0];
+  const gridMetric = metrics.includes('downloads') ? 'downloads' : metrics[0]
   if (gridMetric) {
     for (const tick of scales[gridMetric]!.ticks) {
-      const yy = y(gridMetric, tick);
+      const yy = y(gridMetric, tick)
       if (options.grid) {
-        svg.push(`<line x1="${num(left)}" y1="${num(yy)}" x2="${num(width - right)}" y2="${num(yy)}" ${paint('grid', 'stroke')} stroke-width="1"/>`);
+        svg.push(`<line x1="${num(left)}" y1="${num(yy)}" x2="${num(width - right)}" y2="${num(yy)}" ${paint('grid', 'stroke')} stroke-width="1"/>`)
       }
     }
   }
 
   if (metrics.includes('downloads')) {
     for (const tick of scales.downloads!.ticks) {
-      svg.push(`<text x="${num(left - 7)}" y="${num(y('downloads', tick) + 3)}" text-anchor="end" ${paint('foreground', 'fill')} font-size="10">${formatValue(tick)}</text>`);
+      svg.push(
+        `<text x="${num(left - 7)}" y="${num(y('downloads', tick) + 3)}" text-anchor="end" ${paint('foreground', 'fill')} font-size="10">${formatValue(tick)}</text>`,
+      )
     }
   }
-  const rightMetrics = metrics.filter((metric) => metric !== 'downloads');
+  const rightMetrics = metrics.filter((metric) => metric !== 'downloads')
   if (rightMetrics.length) {
-    const railMetric = rightMetrics.includes('rating') ? 'rating' : 'ratings';
+    const railMetric = rightMetrics.includes('rating') ? 'rating' : 'ratings'
     for (const tick of scales[railMetric]!.ticks) {
-      const paired = rightMetrics.length === 2
-        ? scales.ratings!.ticks.reduce((closest, value) =>
-          Math.abs(y('ratings', value) - y('rating', tick)) < Math.abs(y('ratings', closest) - y('rating', tick)) ? value : closest)
-        : undefined;
-      const label = railMetric === 'rating'
-        ? `${formatValue(tick)}${paired === undefined ? '' : ` / ${formatValue(paired)}`}`
-        : formatValue(tick);
-      svg.push(`<text x="${num(width - right + 7)}" y="${num(y(railMetric, tick) + 3)}" ${paint('foreground', 'fill')} font-size="10">${label}</text>`);
+      const paired =
+        rightMetrics.length === 2
+          ? scales.ratings!.ticks.reduce((closest, value) =>
+              Math.abs(y('ratings', value) - y('rating', tick)) < Math.abs(y('ratings', closest) - y('rating', tick)) ? value : closest,
+            )
+          : undefined
+      const label = railMetric === 'rating' ? `${formatValue(tick)}${paired === undefined ? '' : ` / ${formatValue(paired)}`}` : formatValue(tick)
+      svg.push(`<text x="${num(width - right + 7)}" y="${num(y(railMetric, tick) + 3)}" ${paint('foreground', 'fill')} font-size="10">${label}</text>`)
     }
   }
 
-  svg.push(`<line x1="${num(left)}" y1="${num(titleSpace + plotHeight)}" x2="${num(width - right)}" y2="${num(titleSpace + plotHeight)}" ${paint('grid', 'stroke')}/>`);
+  svg.push(
+    `<line x1="${num(left)}" y1="${num(titleSpace + plotHeight)}" x2="${num(width - right)}" y2="${num(titleSpace + plotHeight)}" ${paint('grid', 'stroke')}/>`,
+  )
   if (hasTime) {
-    const tickCount = maxTime === minTime ? 1 : Math.max(2, Math.min(width >= 640 ? 6 : width >= 440 ? 5 : 4, Math.floor(plotWidth / 88) + 1));
-    const labels = new Set<string>();
+    const tickCount = maxTime === minTime ? 1 : Math.max(2, Math.min(width >= 640 ? 6 : width >= 440 ? 5 : 4, Math.floor(plotWidth / 88) + 1))
+    const labels = new Set<string>()
     for (let i = 0; i < tickCount; i++) {
-      const timestamp = minTime + (maxTime - minTime) * i / Math.max(1, tickCount - 1);
-      const label = date(timestamp);
-      if (labels.has(label)) continue;
-      labels.add(label);
-      const anchor = i === 0 ? 'start' : i === tickCount - 1 ? 'end' : 'middle';
-      const xx = i === 0 ? left : i === tickCount - 1 ? width - right : x(timestamp);
-      svg.push(`<text x="${num(xx)}" y="${num(titleSpace + plotHeight + 17)}" text-anchor="${anchor}" ${paint('foreground', 'fill')} font-size="10">${label}</text>`);
+      const timestamp = minTime + ((maxTime - minTime) * i) / Math.max(1, tickCount - 1)
+      const label = date(timestamp)
+      if (labels.has(label)) continue
+      labels.add(label)
+      const anchor = i === 0 ? 'start' : i === tickCount - 1 ? 'end' : 'middle'
+      const xx = i === 0 ? left : i === tickCount - 1 ? width - right : x(timestamp)
+      svg.push(
+        `<text x="${num(xx)}" y="${num(titleSpace + plotHeight + 17)}" text-anchor="${anchor}" ${paint('foreground', 'fill')} font-size="10">${label}</text>`,
+      )
     }
   }
 
@@ -478,63 +471,78 @@ function renderChartDocument(points: ChartPoint[], options: ChartOptions, lang: 
    * solid marks rather than sit on a background-coloured band.
    */
   for (const metric of metrics) {
-    const color = COLORS[metric];
-    const halo = !transparent && !(dashRatings && metric === 'ratings');
+    const color = COLORS[metric]
+    const halo = !transparent && !(dashRatings && metric === 'ratings')
     for (const { points: segment } of series.get(metric)!) {
-      if (segment.length <= 1) continue;
-      const coordinates = segment.map((point) => `${num(x(point.t))},${num(y(metric, point.value))}`).join(' ');
+      if (segment.length <= 1) continue
+      const coordinates = segment.map((point) => `${num(x(point.t))},${num(y(metric, point.value))}`).join(' ')
       if (metric === 'downloads' && options.area) {
-        const baseline = num(y(metric, 0));
-        svg.push(`<path d="M ${coordinates.replaceAll(' ', ' L ')} L ${num(x(segment[segment.length - 1].t))},${baseline} L ${num(x(segment[0].t))},${baseline} Z" fill="${color}" opacity="0.13"/>`);
+        const baseline = num(y(metric, 0))
+        svg.push(
+          `<path d="M ${coordinates.replaceAll(' ', ' L ')} L ${num(x(segment[segment.length - 1].t))},${baseline} L ${num(x(segment[0].t))},${baseline} Z" fill="${color}" opacity="0.13"/>`,
+        )
       }
       if (halo) {
-        svg.push(`<polyline data-halo="${metric}" points="${coordinates}" fill="none" ${paint('background', 'stroke', 'chart-ring')} stroke-width="${HALO_STROKE_WIDTH}" stroke-linejoin="round" stroke-linecap="round"/>`);
+        svg.push(
+          `<polyline data-halo="${metric}" points="${coordinates}" fill="none" ${paint('background', 'stroke', 'chart-ring')} stroke-width="${HALO_STROKE_WIDTH}" stroke-linejoin="round" stroke-linecap="round"/>`,
+        )
       }
     }
   }
 
   for (const metric of metrics) {
-    const segments = series.get(metric)!;
-    const color = COLORS[metric];
+    const segments = series.get(metric)!
+    const color = COLORS[metric]
     for (const { points: segment, start } of segments) {
-      const coordinates = segment.map((point) => `${num(x(point.t))},${num(y(metric, point.value))}`).join(' ');
+      const coordinates = segment.map((point) => `${num(x(point.t))},${num(y(metric, point.value))}`).join(' ')
       if (segment.length === 1) {
-        const point = segment[0];
-        svg.push(`<circle cx="${num(x(point.t))}" cy="${num(y(metric, point.value))}" r="2.5" fill="${color}"/>`);
+        const point = segment[0]
+        svg.push(`<circle cx="${num(x(point.t))}" cy="${num(y(metric, point.value))}" r="2.5" fill="${color}"/>`)
       } else if (segment.length > 1) {
         // Round caps are the style here, not a hazard: the near-zero dash turns
         // each dash into a neat dot, and the solid lines use round caps as before.
-        const dotted = dashRatings && metric === 'ratings';
-        svg.push(`<polyline data-metric="${metric}" data-start="${start}" points="${coordinates}" fill="none" stroke="${color}" stroke-width="2"${dotted ? ` stroke-dasharray="${RATINGS_DASHARRAY}"` : ''} stroke-linejoin="round" stroke-linecap="round"/>`);
+        const dotted = dashRatings && metric === 'ratings'
+        svg.push(
+          `<polyline data-metric="${metric}" data-start="${start}" points="${coordinates}" fill="none" stroke="${color}" stroke-width="2"${dotted ? ` stroke-dasharray="${RATINGS_DASHARRAY}"` : ''} stroke-linejoin="round" stroke-linecap="round"/>`,
+        )
       }
     }
-    const last = segments.at(-1)?.points.at(-1);
+    const last = segments.at(-1)?.points.at(-1)
     // The endpoint ring is stroked in the background colour to lift the dot off
     // the line; a transparent chart has no background, so it omits the ring.
-    if (last) svg.push(`<circle data-endpoint="${metric}" cx="${num(x(last.t))}" cy="${num(y(metric, last.value))}" r="3.5" fill="${color}"${transparent ? '' : ` ${paint('background', 'stroke', 'chart-ring')} stroke-width="1.5"`}/>`);
+    if (last)
+      svg.push(
+        `<circle data-endpoint="${metric}" cx="${num(x(last.t))}" cy="${num(y(metric, last.value))}" r="3.5" fill="${color}"${transparent ? '' : ` ${paint('background', 'stroke', 'chart-ring')} stroke-width="1.5"`}/>`,
+      )
   }
 
   if (!all.length) {
-    const message = lang === 'zh' ? '暂无所选指标数据' : 'No data for the selected metrics';
-    svg.push(`<text x="${num(left + plotWidth / 2)}" y="${num(titleSpace + plotHeight / 2)}" text-anchor="middle" ${paint('foreground', 'fill')} font-size="12">${message}</text>`);
+    const message = lang === 'zh' ? '暂无所选指标数据' : 'No data for the selected metrics'
+    svg.push(
+      `<text x="${num(left + plotWidth / 2)}" y="${num(titleSpace + plotHeight / 2)}" text-anchor="middle" ${paint('foreground', 'fill')} font-size="12">${message}</text>`,
+    )
   }
   for (let row = 0; row < legend.length; row++) {
-    let xx = left;
-    const yy = height - (updatedBelow ? UPDATED_ROW_HEIGHT : 0) - (legend.length - row - 1) * LEGEND_ROW_HEIGHT - 6;
+    let xx = left
+    const yy = height - (updatedBelow ? UPDATED_ROW_HEIGHT : 0) - (legend.length - row - 1) * LEGEND_ROW_HEIGHT - 6
     for (const { metric, label, width: labelWidth } of legend[row]) {
-      const textX = xx + LEGEND_TEXT_OFFSET;
-      const available = Math.max(1, width - right - textX - 2);
-      svg.push(`<line data-legend="${metric}" x1="${num(xx)}" y1="${num(yy - 3)}" x2="${num(xx + LEGEND_LINE_WIDTH)}" y2="${num(yy - 3)}" stroke="${COLORS[metric]}" stroke-width="2"${dashRatings && metric === 'ratings' ? ` stroke-dasharray="${RATINGS_DASHARRAY}" stroke-linecap="round"` : ''}/>`);
-      svg.push(`<text x="${num(textX)}" y="${num(yy)}" ${paint('foreground', 'fill')} font-size="10">${escapeXml(fitText(label, available, 10))}</text>`);
-      xx += LEGEND_TEXT_OFFSET + labelWidth + LEGEND_ITEM_GAP;
+      const textX = xx + LEGEND_TEXT_OFFSET
+      const available = Math.max(1, width - right - textX - 2)
+      svg.push(
+        `<line data-legend="${metric}" x1="${num(xx)}" y1="${num(yy - 3)}" x2="${num(xx + LEGEND_LINE_WIDTH)}" y2="${num(yy - 3)}" stroke="${COLORS[metric]}" stroke-width="2"${dashRatings && metric === 'ratings' ? ` stroke-dasharray="${RATINGS_DASHARRAY}" stroke-linecap="round"` : ''}/>`,
+      )
+      svg.push(`<text x="${num(textX)}" y="${num(yy)}" ${paint('foreground', 'fill')} font-size="10">${escapeXml(fitText(label, available, 10))}</text>`)
+      xx += LEGEND_TEXT_OFFSET + labelWidth + LEGEND_ITEM_GAP
     }
   }
   if (showUpdated) {
     // Bottom-right, sharing the last legend row when it fits and sitting on its
     // own row below the legend otherwise. The muted palette colour keeps it in
     // the same visual family as the axis labels.
-    svg.push(`<text data-updated="true" x="${num(width - right)}" y="${num(height - 6)}" text-anchor="end" ${paint('muted', 'fill')} font-size="${UPDATED_FONT_SIZE}">${escapeXml(updatedText)}</text>`);
+    svg.push(
+      `<text data-updated="true" x="${num(width - right)}" y="${num(height - 6)}" text-anchor="end" ${paint('muted', 'fill')} font-size="${UPDATED_FONT_SIZE}">${escapeXml(updatedText)}</text>`,
+    )
   }
-  if (!bodyOnly) svg.push('</svg>');
-  return svg.join('');
+  if (!bodyOnly) svg.push('</svg>')
+  return svg.join('')
 }

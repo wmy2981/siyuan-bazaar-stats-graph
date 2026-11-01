@@ -13,7 +13,7 @@ describe('PNG fonts', () => {
   })
 
   it('requests one TrueType subset of the drawn characters', async () => {
-    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async input => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
       const url = String(input)
       if (url.includes('fonts.googleapis.com')) return new Response(css('https://fonts.gstatic.com/s/subset.ttf'))
       return new Response(new Uint8Array([1, 2, 3]))
@@ -30,8 +30,10 @@ describe('PNG fonts', () => {
       // The stylesheet is fetched with the user agent that yields TrueType.
       expect(fetchMock.mock.calls[0][1]).toMatchObject({ headers: { 'User-Agent': 'Mozilla/5.0' } })
       // The font file and the stylesheet are both cached for the edge.
-      expect(vi.mocked(caches.default.put).mock.calls.map(([request]) => String(request)))
-        .toEqual(['https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;600;700&text=%20' + encodeURIComponent('24下载量'), 'https://fonts.gstatic.com/s/subset.ttf'])
+      expect(vi.mocked(caches.default.put).mock.calls.map(([request]) => String(request))).toEqual([
+        'https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;600;700&text=%20' + encodeURIComponent('24下载量'),
+        'https://fonts.gstatic.com/s/subset.ttf',
+      ])
     } finally {
       fetchMock.mockRestore()
     }
@@ -49,7 +51,9 @@ describe('PNG fonts', () => {
   })
 
   it('still renders when the font service is unreachable', async () => {
-    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => { throw new Error('offline') })
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => {
+      throw new Error('offline')
+    })
     const error = vi.spyOn(console, 'error').mockImplementation(() => {})
     try {
       await expect(loadFonts('<svg><text>Downloads</text></svg>', 'en')).resolves.toEqual({ buffers: [], family: 'Noto Sans' })

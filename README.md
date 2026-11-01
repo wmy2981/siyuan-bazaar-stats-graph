@@ -4,7 +4,7 @@ English | [简体中文](./README.zh-CN.md)
 
 Static SVG trend charts for [SiYuan Note](https://github.com/siyuan-note/siyuan) bazaar packages, powered by Cloudflare Workers and the public history from [TCOTC/siyuan-bazaar-stats](https://github.com/TCOTC/siyuan-bazaar-stats).
 
-*Example chart using live data:*
+_Example chart using live data:_
 
 ![Live chart for wmy2981/ai-title-siyuan](https://siyuan-bazaar-stats-graph.sr1.cc.cd/api/chart/wmy2981/ai-title-siyuan?metrics=downloads&range=90d&area=true)
 
@@ -33,20 +33,20 @@ GET /api/png/chart/{owner}/{repo}
 
 ### Parameters
 
-| Parameter | Values | Default |
-| --- | --- | --- |
-| `metrics` | Comma-separated `downloads`, `rating`, `ratings` | `downloads` |
-| `range` | `30d`, `90d`, `1y`, `all` | `all` |
-| `start`, `end` | UTC dates, `YYYY-MM-DD`; pass either or both, instead of `range` | — |
-| `theme` | `light`, `dark`, `auto`, `transparent`; PNG charts take the first two and `transparent`, not `auto` | `auto`, or `light` on the PNG route |
-| `width` | Integer from 320 to 1600 | `800` |
-| `height` | Integer from 200 to 1000 | `400` |
-| `title` | `true`, `false` | `true` |
-| `legend` | `true`, `false` | `true` |
-| `grid` | `true`, `false` | `true` |
-| `area` | `true`, `false`; fill below downloads | `false` |
-| `updated` | `true`, `false`; show the upstream update time | `true` |
-| `lang` | `en`, `zh`, `auto` | `auto` |
+| Parameter      | Values                                                                                              | Default                             |
+| -------------- | --------------------------------------------------------------------------------------------------- | ----------------------------------- |
+| `metrics`      | Comma-separated `downloads`, `rating`, `ratings`                                                    | `downloads`                         |
+| `range`        | `30d`, `90d`, `1y`, `all`                                                                           | `all`                               |
+| `start`, `end` | UTC dates, `YYYY-MM-DD`; pass either or both, instead of `range`                                    | —                                   |
+| `theme`        | `light`, `dark`, `auto`, `transparent`; PNG charts take the first two and `transparent`, not `auto` | `auto`, or `light` on the PNG route |
+| `width`        | Integer from 320 to 1600                                                                            | `800`                               |
+| `height`       | Integer from 200 to 1000                                                                            | `400`                               |
+| `title`        | `true`, `false`                                                                                     | `true`                              |
+| `legend`       | `true`, `false`                                                                                     | `true`                              |
+| `grid`         | `true`, `false`                                                                                     | `true`                              |
+| `area`         | `true`, `false`; fill below downloads                                                               | `false`                             |
+| `updated`      | `true`, `false`; show the upstream update time                                                      | `true`                              |
+| `lang`         | `en`, `zh`, `auto`                                                                                  | `auto`                              |
 
 Passing only `start` loads from that date to the newest observation; only `end` loads everything up to that date, covering the whole UTC day; both load that range.
 
