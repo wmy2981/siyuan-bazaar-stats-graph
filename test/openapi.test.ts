@@ -86,7 +86,7 @@ describe('OpenAPI document', () => {
       const documented = operation.parameters
         .map(parameter)
         .filter((entry) => entry.in === 'query')
-        .map((entry) => (entry.name === 'theme' ? 'theme' : entry.name))
+        .map((entry) => entry.name)
       expect(documented.sort()).toEqual([...queryParameters].sort())
     }
     expect(
