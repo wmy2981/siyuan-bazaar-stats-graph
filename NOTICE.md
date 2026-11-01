@@ -10,13 +10,16 @@ under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) per its
 
 ### Fields used
 
-Read at request time from the upstream package JSON, raw snapshots as fallback. Only
-`downloads`, `rating.average` and `rating.count` reach the chart, plus `owner/repo`
-and the newest observation time shown as the update line; no other field is displayed.
+Read at request time from the upstream package JSON, raw snapshots as fallback. Those
+artifacts abbreviate every metric key (`d` downloads, `a` average rating, `c` rating
+count, `x` the five-star histogram); only those metrics reach the chart, plus
+`owner/repo` and the newest observation time shown as the update line. No other field
+is displayed.
 
 ### Modifications
 
-- No dataset is mirrored; the only copy is the 30-minute edge cache.
+- No dataset is mirrored; copies exist only in the edge cache, as the 30-minute chart
+  entry and as a 24-hour copy that an upstream outage may replay.
 - A five-star histogram, when present, is aggregated into an average and count.
 - Points use their real timestamps (`t`, Unix seconds); missing samples break the
   line rather than being interpolated, except in the snapshot fallback, where a
