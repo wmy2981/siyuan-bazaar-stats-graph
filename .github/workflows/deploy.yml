@@ -34,7 +34,7 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
-      - run: npm run build:ci
+      - run: npm run build
       - run: npx cf deploy --prebuilt
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
