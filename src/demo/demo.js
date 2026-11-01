@@ -212,8 +212,8 @@
     markdown: document.querySelector('#code-markdown'),
   }
   const metricOrder = ['downloads', 'rating', 'ratings']
+  /** Endpoint defaults; a value that matches one is dropped from a shared URL. */
   const defaults = { width: 800, height: 400 }
-  const urlDefaults = { width: 800, height: 400 }
 
   /** Mutable UI state: language, theme, debounce timer and the in-flight preview request. */
   let pageLang = detectPageLanguage()
@@ -629,8 +629,8 @@
     const metrics = selectedMetrics()
     const range = selectedValue(rangeInputs)
     const theme = selectedValue(themeInputs)
-    const width = clampInteger(widthInput, urlDefaults.width, 320, 1600)
-    const height = clampInteger(heightInput, urlDefaults.height, 200, 1000)
+    const width = clampInteger(widthInput, defaults.width, 320, 1600)
+    const height = clampInteger(heightInput, defaults.height, 200, 1000)
     const params = new URLSearchParams()
     params.set('metrics', metrics.join(','))
     if (range === 'custom') {
@@ -641,8 +641,8 @@
     }
     if (form.elements.area.checked) params.set('area', 'true')
     if (theme !== 'auto') params.set('theme', theme)
-    if (width !== urlDefaults.width) params.set('width', String(width))
-    if (height !== urlDefaults.height) params.set('height', String(height))
+    if (width !== defaults.width) params.set('width', String(width))
+    if (height !== defaults.height) params.set('height', String(height))
     if (!form.elements.title.checked) params.set('title', 'false')
     if (!form.elements.legend.checked) params.set('legend', 'false')
     if (!form.elements.grid.checked) params.set('grid', 'false')
@@ -724,8 +724,8 @@
       return
     }
 
-    const width = clampInteger(widthInput, urlDefaults.width, 320, 1600)
-    const height = clampInteger(heightInput, urlDefaults.height, 200, 1000)
+    const width = clampInteger(widthInput, defaults.width, 320, 1600)
+    const height = clampInteger(heightInput, defaults.height, 200, 1000)
     const url = buildUrl(repo)
     const alt = t('alt.chart', { repo })
     setSnippets(url, alt, width, height)
