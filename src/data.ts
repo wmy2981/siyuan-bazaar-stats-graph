@@ -21,7 +21,13 @@ const PACKAGE_URL = 'https://siyuan-bazaar-stats.mytemos.com/data/packages/'
 const PACKAGE_MIRROR_URL = 'https://github.mytemos.com/siyuan-bazaar-stats/data/packages/'
 /** Raw monthly snapshots in TCOTC/siyuan-bazaar-stats; the last-resort source. */
 const RAW_URL = 'https://raw.githubusercontent.com/TCOTC/siyuan-bazaar-stats/main/data/snapshots'
-/** Refuse oversized monthly snapshots instead of buffering them inside a Worker. */
+/**
+ * Cap on one monthly snapshot. A body is read whole before it is parsed, so the
+ * cap keeps a single file well inside the Worker memory budget: the
+ * `content-length` header is checked when the host sends one, and the decoded
+ * text is measured otherwise, because raw.githubusercontent.com streams without
+ * it.
+ */
 const MAX_SNAPSHOT_BYTES = 24 * 1024 * 1024
 /**
  * Format version of the upstream `/data/` artifacts, which carry it as `schema`.
