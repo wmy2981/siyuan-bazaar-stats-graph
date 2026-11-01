@@ -82,6 +82,13 @@ describe('history slicing', () => {
   it('does not fabricate a baseline before the first point', () => {
     expect(sliceHistory(history, 1, 15)).toEqual([{ t: 10, d: 1 }])
   })
+  it('keeps one observation when the window starts on a data point', () => {
+    // The boundary point keeps its own value rather than gaining a baseline copy.
+    expect(sliceHistory(history, 20, 35)).toEqual([
+      { t: 20, d: 3 },
+      { t: 30, d: 8 },
+    ])
+  })
   it('slices open-ended ranges on either side', () => {
     // start only: keep everything from the boundary, carrying the last value.
     expect(sliceHistory(history, 15, undefined)).toEqual([

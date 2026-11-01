@@ -108,7 +108,9 @@ export function parseOptions(url: URL, png = false): ChartOptions & { start?: nu
  */
 export function sliceHistory<T extends { t: number }>(history: T[], start?: number, end?: number): T[] {
   const filtered = history.filter((p) => (start === undefined || p.t >= start) && (end === undefined || p.t <= end))
-  if (start !== undefined && filtered.length) {
+  // A point exactly on the boundary already carries its own value, so a baseline
+  // copy would leave two observations at the same instant.
+  if (start !== undefined && filtered.length && filtered[0]!.t > start) {
     const baseline = history.findLast((p) => p.t < start)
     if (baseline) filtered.unshift({ ...baseline, t: start })
   }
