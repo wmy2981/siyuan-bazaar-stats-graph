@@ -46,6 +46,14 @@ describe('chart parameters', () => {
     // Both bounds remain independent when both are supplied.
     expect(parseOptions(url('start=2026-08-01&end=2026-08-02')).start).toBe(Date.UTC(2026, 7, 1) / 1000)
   })
+  it('treats the epoch date as a real boundary', () => {
+    // 1970-01-01 parses to second 0, which must not read as "no start given".
+    const parsed = parseOptions(url('start=1970-01-01'))
+    expect(parsed.start).toBe(0)
+    // A date bound still conflicts with a fixed window, and reversals are still caught.
+    expect(() => parseOptions(url('start=1970-01-01&range=30d'))).toThrow()
+    expect(() => parseOptions(url('start=1970-01-02&end=1970-01-01'))).toThrow()
+  })
   it('fixes the PNG theme instead of resolving auto', () => {
     const png = (query = '') => new URL(`https://charts.example/api/png/chart/owner/repo?${query}`)
     // A raster is frozen at render time, so it defaults to light and must name a theme.

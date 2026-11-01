@@ -75,8 +75,8 @@ export function parseOptions(url: URL, png = false): ChartOptions & { start?: nu
   }
   const start = parseDate('start')
   const end = parseDate('end', true)
-  if ((start || end) && range !== 'all') throw new ChartError('conflictingDateFilters')
-  if (start && end && start > end) throw new ChartError('reversedDateRange')
+  if ((start !== undefined || end !== undefined) && range !== 'all') throw new ChartError('conflictingDateFilters')
+  if (start !== undefined && end !== undefined && start > end) throw new ChartError('reversedDateRange')
   const days = ranges[range]
   const rangeEnd = end ?? Math.floor(Date.now() / 1000)
   return {
@@ -107,8 +107,8 @@ export function parseOptions(url: URL, png = false): ChartOptions & { start?: nu
  * from the left edge of the chart.
  */
 export function sliceHistory<T extends { t: number }>(history: T[], start?: number, end?: number): T[] {
-  const filtered = history.filter((p) => (!start || p.t >= start) && (!end || p.t <= end))
-  if (start && filtered.length) {
+  const filtered = history.filter((p) => (start === undefined || p.t >= start) && (end === undefined || p.t <= end))
+  if (start !== undefined && filtered.length) {
     const baseline = history.findLast((p) => p.t < start)
     if (baseline) filtered.unshift({ ...baseline, t: start })
   }
