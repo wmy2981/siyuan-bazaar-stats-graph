@@ -17,7 +17,7 @@
     "test:watch": "vitest",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "check": "npm run typecheck && npm test && npm run build"
+    "check": "npm run typecheck && npm run format:check && npm test && npm run build"
   },
   "overrides": {
     "undici": "7.30.1",
