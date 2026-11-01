@@ -1,0 +1,421 @@
+openapi: 3.1.0
+info:
+  title: SiYuan Bazaar Stats Graph
+  version: 1.0.0
+  summary: Static SVG and PNG trend charts for SiYuan bazaar packages.
+  description: |
+    Renders one self-contained trend chart per request from the public history that
+    [TCOTC/siyuan-bazaar-stats](https://github.com/TCOTC/siyuan-bazaar-stats) publishes for every
+    SiYuan bazaar package. No API key is required, and charts are addressed by the package's
+    GitHub repository.
+
+    ## Always an image
+
+    Both endpoints answer `200` with an image body — for a valid chart, for a parameter mistake and
+    for an upstream failure alike — so an embed fails visibly instead of turning into a broken
+    image in a README. Read `X-Chart-Status` to tell a chart (`ok`) from an error card (`error`),
+    and `X-Cache` to tell which copy the edge served. Only `GET` and `HEAD` are meaningful; any
+    other method answers the `methodNotAllowed` error card.
+
+    ## Error cards
+
+    An error card is an ordinary image of the same media type: an SVG document on
+    `/api/chart/{owner}/{repo}`, a raster on `/api/png/chart/{owner}/{repo}`. It shows a short
+    headline plus an actionable hint in the language selected by `lang`, and lists the offending
+    parameter by name (for example `Unknown parameter: foo`). `lang=auto` ships both languages and
+    the reader's browser picks one. Treat `X-Chart-Status: error` as the error signal; the HTTP
+    status stays `200` on purpose.
+
+    ## Parameters
+
+    `owner` and `repo` are required; every query parameter is optional and falls back to the
+    default listed below, so a request with no query string at all answers the default chart. An
+    unknown query parameter, a repeated one, or a value outside its documented domain is rejected
+    with an error card instead of being ignored, so a typo surfaces instead of silently drawing a
+    different chart. The defaults do not contradict each other: the default `range=all` stays valid
+    next to the `start` and `end` examples shown in the reference.
+
+    ## Caching
+
+    A successful chart is cached for 30 minutes (`Cache-Control: public, max-age=60,
+    s-maxage=1800`) and an error card for one minute. While the upstream data source is
+    unavailable, the last successful chart may be replayed for up to 24 hours with
+    `X-Chart-Status: stale`; when no copy is that fresh the request fails visibly instead.
+
+    ## Embedding
+
+    An SVG chart is intentionally static: no scripts, external resources, cookies or runtime
+    browser dependencies, so GitHub's image proxy can cache and render it. Colours are CSS custom
+    properties inside an inline `<style>` element, so the renderer needs CSS variable support;
+    pipelines that cannot provide it (cairosvg, for example) should use the PNG route instead.
+  license:
+    name: MIT
+    identifier: MIT
+externalDocs:
+  description: Source code, data notes and the embeddable chart builder
+  url: https://github.com/wmy2981/siyuan-bazaar-stats-graph
+servers:
+  - url: https://siyuan-bazaar-stats-graph.sr1.cc.cd
+    description: Production. Use this host in README embeds.
+  - url: http://localhost:5173
+    description: Local development server (`npm run dev`).
+tags:
+  - name: Charts
+    description: |
+      One chart per bazaar package. Both operations render the same data with the same parameters
+      and the same header contract; they differ only in the response media type.
+paths:
+  /api/chart/{owner}/{repo}:
+    get:
+      tags:
+        - Charts
+      operationId: renderSvgChart
+      summary: Render a chart as SVG
+      description: |
+        Returns a self-contained `image/svg+xml` document that can be pasted straight into a
+        README. `theme=auto` and `lang=auto` ship both palettes and both languages inside that one
+        document, resolved by the reader's system colour preference and interface language.
+        `theme=transparent` drops the background card and every background-coloured decoration so
+        the chart sits directly on the page behind it; the document still ships both palettes, so
+        text, grid and axes stay legible on light and dark pages.
+
+        `rating` is the weighted average from 1 to 5 and `ratings` the number of ratings. Downloads
+        use the left axis, rating metrics the right one; with both rating metrics selected the
+        right axis shows paired average / count labels. Lines follow real observation timestamps,
+        rating gaps stay disconnected, and a range that starts after the first observation carries
+        the last known value to the boundary, which is correct for cumulative metrics.
+
+        `HEAD` returns the same status and headers with an empty body.
+
+        Example: `/api/chart/wmy2981/ai-title-siyuan?metrics=downloads,rating&range=90d&area=true`.
+      parameters:
+        - $ref: '#/components/parameters/owner'
+        - $ref: '#/components/parameters/repo'
+        - $ref: '#/components/parameters/metrics'
+        - $ref: '#/components/parameters/range'
+        - $ref: '#/components/parameters/start'
+        - $ref: '#/components/parameters/end'
+        - $ref: '#/components/parameters/theme'
+        - $ref: '#/components/parameters/width'
+        - $ref: '#/components/parameters/height'
+        - $ref: '#/components/parameters/title'
+        - $ref: '#/components/parameters/legend'
+        - $ref: '#/components/parameters/grid'
+        - $ref: '#/components/parameters/area'
+        - $ref: '#/components/parameters/updated'
+        - $ref: '#/components/parameters/lang'
+      responses:
+        '200':
+          description: |
+            One SVG document, either the requested chart or an error card. `X-Chart-Status`
+            distinguishes the two.
+          headers:
+            X-Chart-Status:
+              $ref: '#/components/headers/X-Chart-Status'
+            X-Cache:
+              $ref: '#/components/headers/X-Cache'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+            CDN-Cache-Control:
+              $ref: '#/components/headers/CDN-Cache-Control'
+            X-Fetched-At:
+              $ref: '#/components/headers/X-Fetched-At'
+            X-Data-Stale:
+              $ref: '#/components/headers/X-Data-Stale'
+            Access-Control-Allow-Origin:
+              $ref: '#/components/headers/Access-Control-Allow-Origin'
+          content:
+            image/svg+xml:
+              schema:
+                type: string
+                contentMediaType: image/svg+xml
+  /api/png/chart/{owner}/{repo}:
+    get:
+      tags:
+        - Charts
+      operationId: renderPngChart
+      summary: Render a chart as PNG
+      description: |
+        The same chart as `image/png`, for pipelines that cannot render SVG or CSS variables. A
+        raster is frozen at render time, so it cannot follow the reader: `theme` must name a fixed
+        look — `light`, `dark` or `transparent`, defaulting to `light` — and `theme=auto` is
+        rejected because no reader is left to follow. The light and dark cards are painted into
+        the raster itself, so an image viewer cannot repaint the background, while
+        `theme=transparent` leaves the alpha channel empty.
+
+        `lang=auto` resolves to English; an explicit `lang=zh` still applies. Glyph subsets of Noto
+        Sans / Noto Sans SC (SIL OFL 1.1) are fetched from Google Fonts on the first request per
+        edge location; if that fetch fails the chart still renders, without text. An error card is
+        rasterised like a chart and keeps a light background so its message stays readable.
+
+        `HEAD` returns the same status and headers with an empty body.
+      parameters:
+        - $ref: '#/components/parameters/owner'
+        - $ref: '#/components/parameters/repo'
+        - $ref: '#/components/parameters/metrics'
+        - $ref: '#/components/parameters/range'
+        - $ref: '#/components/parameters/start'
+        - $ref: '#/components/parameters/end'
+        - $ref: '#/components/parameters/pngTheme'
+        - $ref: '#/components/parameters/width'
+        - $ref: '#/components/parameters/height'
+        - $ref: '#/components/parameters/title'
+        - $ref: '#/components/parameters/legend'
+        - $ref: '#/components/parameters/grid'
+        - $ref: '#/components/parameters/area'
+        - $ref: '#/components/parameters/updated'
+        - $ref: '#/components/parameters/lang'
+      responses:
+        '200':
+          description: |
+            One PNG image, either the requested chart or an error card. `X-Chart-Status`
+            distinguishes the two.
+          headers:
+            X-Chart-Status:
+              $ref: '#/components/headers/X-Chart-Status'
+            X-Cache:
+              $ref: '#/components/headers/X-Cache'
+            Cache-Control:
+              $ref: '#/components/headers/Cache-Control'
+            CDN-Cache-Control:
+              $ref: '#/components/headers/CDN-Cache-Control'
+            X-Fetched-At:
+              $ref: '#/components/headers/X-Fetched-At'
+            X-Data-Stale:
+              $ref: '#/components/headers/X-Data-Stale'
+            Access-Control-Allow-Origin:
+              $ref: '#/components/headers/Access-Control-Allow-Origin'
+          content:
+            image/png:
+              schema:
+                type: string
+                format: binary
+                contentMediaType: image/png
+components:
+  parameters:
+    owner:
+      name: owner
+      in: path
+      required: true
+      description: GitHub account that owns the repository, following GitHub's slug rules.
+      schema:
+        type: string
+        pattern: '^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})$'
+      example: wmy2981
+    repo:
+      name: repo
+      in: path
+      required: true
+      description: Repository name. Together with `owner` it is resolved to a bazaar package.
+      schema:
+        type: string
+        pattern: '^[A-Za-z0-9_.-]{1,100}$'
+      example: ai-title-siyuan
+    metrics:
+      name: metrics
+      in: query
+      required: false
+      description: |
+        Comma-separated metrics to draw. `downloads` is the download count, `rating` the weighted
+        average from 1 to 5 and `ratings` the number of ratings. Downloads use the left axis,
+        rating metrics the right one.
+      schema:
+        type: string
+        default: downloads
+        pattern: '^(downloads|rating|ratings)(,(downloads|rating|ratings))*$'
+      example: downloads,rating,ratings
+    range:
+      name: range
+      in: query
+      required: false
+      description: |
+        Relative window ending now. `all` uses the whole published history and is the only value
+        that may stay in place next to `start` or `end`; pairing a fixed window with a date is an
+        error.
+      schema:
+        type: string
+        enum:
+          - 30d
+          - 90d
+          - 1y
+          - all
+        default: all
+    start:
+      name: start
+      in: query
+      required: false
+      description: |
+        UTC start date, inclusive. Without `end` the range runs to the newest observation; without
+        `start` the range begins at the first one. Leave `range` at `all` when a date is given.
+      schema:
+        type: string
+        format: date
+      example: '2026-08-01'
+    end:
+      name: end
+      in: query
+      required: false
+      description: |
+        UTC end date, inclusive of the whole day. Must not be earlier than `start`. Leave `range` at
+        `all` when a date is given.
+      schema:
+        type: string
+        format: date
+      example: '2026-10-01'
+    theme:
+      name: theme
+      in: query
+      required: false
+      description: |
+        Chart palette. `auto` ships the light and dark palettes in one document and lets the
+        reader's system colour preference choose. `transparent` drops the background card and
+        every background-coloured decoration.
+      schema:
+        type: string
+        enum:
+          - light
+          - dark
+          - auto
+          - transparent
+        default: auto
+    pngTheme:
+      name: theme
+      in: query
+      required: false
+      description: |
+        Chart palette. A PNG is fixed once rendered, so only the palettes that name a fixed look
+        are accepted; `auto` is rejected with the `unknownPngTheme` error card.
+      schema:
+        type: string
+        enum:
+          - light
+          - dark
+          - transparent
+        default: light
+    width:
+      name: width
+      in: query
+      required: false
+      description: Chart width in pixels.
+      schema:
+        type: integer
+        minimum: 320
+        maximum: 1600
+        default: 800
+    height:
+      name: height
+      in: query
+      required: false
+      description: Chart height in pixels.
+      schema:
+        type: integer
+        minimum: 200
+        maximum: 1000
+        default: 400
+    title:
+      name: title
+      in: query
+      required: false
+      description: Draw the `owner/repo` title above the plot.
+      schema:
+        type: boolean
+        default: true
+    legend:
+      name: legend
+      in: query
+      required: false
+      description: Draw the legend, including the latest value per metric.
+      schema:
+        type: boolean
+        default: true
+    grid:
+      name: grid
+      in: query
+      required: false
+      description: Draw the horizontal grid lines and the date axis.
+      schema:
+        type: boolean
+        default: true
+    area:
+      name: area
+      in: query
+      required: false
+      description: Fill the area below the downloads line.
+      schema:
+        type: boolean
+        default: false
+    updated:
+      name: updated
+      in: query
+      required: false
+      description: |
+        Show the upstream update time — the newest observation, in UTC to the second — as small
+        muted text. It is the latest observation of the full history, not of the selected range.
+      schema:
+        type: boolean
+        default: true
+    lang:
+      name: lang
+      in: query
+      required: false
+      description: |
+        Language of every label, including error cards. `auto` ships English and Chinese in one
+        document and lets the reader's browser pick; a raster chart, which cannot follow the
+        reader, resolves `auto` to English.
+      schema:
+        type: string
+        enum:
+          - en
+          - zh
+          - auto
+        default: auto
+  headers:
+    X-Chart-Status:
+      description: |
+        `ok` for a chart, `error` for an error card, `stale` for a cached chart replayed during an
+        upstream outage.
+      schema:
+        type: string
+        enum:
+          - ok
+          - error
+          - stale
+    X-Cache:
+      description: |
+        `MISS` when the chart was rendered for this request, `HIT` when a cached chart was served,
+        `STALE` when the 24-hour fallback copy was served.
+      schema:
+        type: string
+        enum:
+          - MISS
+          - HIT
+          - STALE
+    Cache-Control:
+      description: |
+        Browser and edge lifetime: `public, max-age=60, s-maxage=1800` for a chart and
+        `max-age=60, s-maxage=60` for an error card or a stale fallback.
+      schema:
+        type: string
+    CDN-Cache-Control:
+      description: Edge-only lifetime, matching the longer `s-maxage` of `Cache-Control`.
+      schema:
+        type: string
+    X-Fetched-At:
+      description: ISO 8601 timestamp of the moment the chart was rendered. Present on charts rendered by the request, absent on cache hits.
+      schema:
+        type: string
+        format: date-time
+    X-Data-Stale:
+      description: |
+        `true` when the chart was built from the raw monthly snapshots because the generated
+        per-package history could not be loaded. Absent otherwise.
+      schema:
+        type: string
+        enum:
+          - 'true'
+    Access-Control-Allow-Origin:
+      description: Always `*`, so charts can be fetched from any page.
+      schema:
+        type: string
+        enum:
+          - '*'

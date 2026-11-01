@@ -69,6 +69,10 @@ GET /api/png/chart/{owner}/{repo}
 
 SVG 刻意保持静态：没有脚本、外部资源、Cookie 或运行时的浏览器依赖，GitHub 的图片代理可以安全地缓存并渲染它。
 
+## 接口描述
+
+[`GET /openapi.yaml`](https://siyuan-bazaar-stats-graph.sr1.cc.cd/openapi.yaml) 提供两个图表接口的 OpenAPI 3.1 描述：参数与默认值、状态与缓存响应头、错误语义以及示例。可据此生成客户端或供工具消费；README 只概述其中已文档化的内容。
+
 ## 数据
 
 - 包仓库映射与目录来自思源集市官方索引。

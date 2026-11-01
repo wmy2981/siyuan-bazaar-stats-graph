@@ -1,4 +1,5 @@
 /** Worker contract: routing, caching, error surfaces and response headers. */
+import { readFileSync } from 'node:fs'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const summary = { packages: [{ name: 'sample', repo: 'owner/repo' }] }
@@ -46,6 +47,26 @@ describe('chart builder page', () => {
     const response = await worker.fetch(new Request('https://charts.test/robots.txt'))
     expect(response.headers.get('content-type')).toContain('text/plain')
     expect(await response.text()).toContain('User-agent: *')
+  })
+})
+
+describe('OpenAPI description', () => {
+  it('serves the YAML document from src/openapi.yaml verbatim', async () => {
+    const response = await worker.fetch(new Request('https://charts.test/openapi.yaml'))
+    expect(response.headers.get('content-type')).toBe('application/yaml; charset=utf-8')
+    expect(response.headers.get('x-content-type-options')).toBe('nosniff')
+    expect(response.headers.get('cache-control')).toContain('max-age=300')
+    const spec = readFileSync(new URL('../src/openapi.yaml', import.meta.url), 'utf8')
+    expect(await response.text()).toBe(spec)
+  })
+  it('supports HEAD and rejects other methods', async () => {
+    const head = await worker.fetch(new Request('https://charts.test/openapi.yaml', { method: 'HEAD' }))
+    expect(head.status).toBe(200)
+    expect(head.headers.get('content-type')).toBe('application/yaml; charset=utf-8')
+    expect(await head.text()).toBe('')
+    const post = await worker.fetch(new Request('https://charts.test/openapi.yaml', { method: 'POST' }))
+    expect(post.status).toBe(405)
+    expect(post.headers.get('allow')).toBe('GET, HEAD')
   })
 })
 

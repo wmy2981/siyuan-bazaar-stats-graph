@@ -1,6 +1,7 @@
 /**
  * Worker entry point: serves the chart builder at /, SVG charts at
- * /api/chart/{owner}/{repo} and PNG charts at /api/png/chart/{owner}/{repo}.
+ * /api/chart/{owner}/{repo}, PNG charts at /api/png/chart/{owner}/{repo} and the
+ * OpenAPI description at /openapi.yaml.
  * SVG routes always answer expected errors with SVG; the PNG route answers with
  * a rasterised error chart instead.
  */
@@ -12,6 +13,7 @@ import demoStyles from './demo/demo.css?raw'
 import { ChartError, loadPackage } from './data'
 import type { ResolvedLanguage } from './fonts'
 import { localizeError } from './i18n'
+import openapiSpec from './openapi.yaml?raw'
 import { parseOptions, sliceHistory } from './options'
 import { svgToPng } from './png'
 
@@ -67,6 +69,13 @@ function demo(request: Request): Response {
   })
 }
 
+/** Static documents such as the OpenAPI description; HEAD keeps the same headers. */
+function document(request: Request, type: string, body: string): Response {
+  return new Response(request.method === 'HEAD' ? null : body, {
+    headers: { 'X-Content-Type-Options': 'nosniff', 'Content-Type': type, 'Cache-Control': 'public, max-age=300', Vary: 'Accept-Encoding' },
+  })
+}
+
 /** Errors render in the reader's language, or in both when lang=auto. */
 function errorChart(url: URL, error: ChartError): string {
   const lang = url.searchParams.get('lang')
@@ -102,6 +111,11 @@ export default {
     const url = new URL(request.url)
     /** PNG paths answer rasterised errors; every other path keeps the SVG contract. */
     const isPng = url.pathname.startsWith('/api/png/')
+    // The OpenAPI description documents the chart API and is a plain static document.
+    if (url.pathname === '/openapi.yaml') {
+      if (request.method !== 'GET' && request.method !== 'HEAD') return new Response(null, { status: 405, headers: { Allow: 'GET, HEAD' } })
+      return document(request, 'application/yaml; charset=utf-8', openapiSpec)
+    }
     // Only GET and HEAD are meaningful; anything else renders a visible error.
     if (request.method !== 'GET' && request.method !== 'HEAD') {
       return isPng ? pngError(url, new ChartError('methodNotAllowed')) : svg(errorChart(url, new ChartError('methodNotAllowed')), 200, true)

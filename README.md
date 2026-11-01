@@ -69,6 +69,10 @@ Colours are CSS custom properties in an inline `<style>` element, so the SVG nee
 
 The SVG is intentionally static: no scripts, external resources, cookies or runtime browser dependencies, so GitHub's image proxy can cache and render it safely.
 
+## API description
+
+[`GET /openapi.yaml`](https://siyuan-bazaar-stats-graph.sr1.cc.cd/openapi.yaml) serves the OpenAPI 3.1 description of both chart endpoints: parameters and their defaults, the status and cache headers, error semantics and examples. Use it to generate clients or feed tooling; the README only summarises what it documents.
+
 ## Data
 
 - Package mappings and the catalog come from the official SiYuan bazaar indexes.
