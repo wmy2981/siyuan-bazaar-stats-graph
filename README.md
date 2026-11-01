@@ -18,7 +18,7 @@ Open the [interactive chart builder](https://siyuan-bazaar-stats-graph.sr1.cc.cd
 ![Package trends](https://siyuan-bazaar-stats-graph.sr1.cc.cd/api/chart/OWNER/REPO?metrics=downloads,rating,ratings&range=90d)
 ```
 
-Replace `OWNER/REPO` with the package's GitHub repository; the service resolves it through the official package catalog. No API key is required. Production base URL: `https://siyuan-bazaar-stats-graph.sr1.cc.cd`.
+Replace `OWNER/REPO` with the package's GitHub repository; the service maps it to its bazaar package through the published stats summary, falling back to the official bazaar catalog. No API key is required. Production base URL: `https://siyuan-bazaar-stats-graph.sr1.cc.cd`.
 
 ## Endpoint
 
@@ -77,7 +77,7 @@ The [API reference](https://siyuan-bazaar-stats-graph.sr1.cc.cd/docs) renders th
 
 ## Data
 
-- Package mappings and the catalog come from the official SiYuan bazaar indexes.
+- Package mappings come from the upstream stats summary, with the official SiYuan bazaar catalog as fallback.
 - History comes from upstream package detail JSON, with raw monthly snapshots as fallback. Observations are change-only, collected every 30 minutes at best since August 2026, and GitHub scheduling may delay them by hours. Charts show the upstream data's last update time — the newest observation, in UTC to the second — as small muted text at the bottom right, or below the legend when the chart is too narrow; hide it with `updated=false`. The title carries no date.
 - Timestamps are the bazaar's `publishedAt`, not the collection time, so spacing is uneven and a quiet period has no point.
 - Delisted packages leave the upstream artifacts, so their charts report `packageNotFound`.

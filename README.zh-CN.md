@@ -18,7 +18,7 @@ _示例图（使用实时数据）：_
 ![包趋势](https://siyuan-bazaar-stats-graph.sr1.cc.cd/api/chart/OWNER/REPO?metrics=downloads,rating,ratings&range=90d&lang=zh)
 ```
 
-把 `OWNER/REPO` 换成该包的 GitHub 仓库；服务会通过官方包目录解析到对应的集市包，无需 API Key。生产环境地址：`https://siyuan-bazaar-stats-graph.sr1.cc.cd`。
+把 `OWNER/REPO` 换成该包的 GitHub 仓库；服务会先查上游统计摘要，找不到时回退到思源集市官方索引，把仓库映射到对应的集市包，无需 API Key。生产环境地址：`https://siyuan-bazaar-stats-graph.sr1.cc.cd`。
 
 ## 接口
 
@@ -77,7 +77,7 @@ SVG 刻意保持静态：没有脚本、外部资源、Cookie 或运行时的浏
 
 ## 数据
 
-- 包仓库映射与目录来自思源集市官方索引。
+- 包仓库映射来自上游统计摘要，找不到时回退到思源集市官方索引。
 - 历史数值来自上游包详情 JSON，每月原始快照作为兜底。观测只在数值变化时记录，最快每 30 分钟一次，起始于 2026 年 8 月，GitHub 定时调度可能延迟数小时。图表在右下角以小字显示上游数据的最后更新时间（即最新观测时间，UTC、精确到秒），图表太窄放不下时改到图例下方；可用 `updated=false` 隐藏。标题不再带日期。
 - 时间戳取自集市的 `publishedAt`，不是采集时刻，因此各点间隔不均匀，数值无变化的时段也没有对应的点。
 - 已下架的包会从上游产物中消失，这类图表返回 `packageNotFound`。
