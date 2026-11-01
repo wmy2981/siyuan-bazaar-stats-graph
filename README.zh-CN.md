@@ -29,7 +29,7 @@ GET /api/png/chart/{owner}/{repo}
 
 `/api/chart/{owner}/{repo}` 始终返回一份自包含的 `image/svg+xml` 文档，输入错误与上游错误也是如此，这样错误会直接显示出来，而不是在 GitHub README 里变成一张破图。成功图表缓存 30 分钟，错误图表缓存 1 分钟。上游故障期间，最近一次成功的图表最多可继续提供 24 小时，并带 `X-Chart-Status: stale` 与 `X-Cache: STALE`；其他情况 `X-Chart-Status` 为 `ok` 或 `error`。
 
-`/api/png/chart/{owner}/{repo}` 返回同样图表的透明底 PNG，供无法渲染 SVG 或 CSS 变量的流程使用。PNG 在生成时就固定下来，因此不支持 `lang=auto` 与 `theme=auto`：语言与主题不指定或为 auto 时按英语、浅色处理，显式传入 `lang=zh` 或 `theme=dark` 仍然生效。首次请求时每个边缘节点会从 Google Fonts 获取 Noto Sans / Noto Sans SC（SIL OFL 1.1）的字形子集；获取失败时仍会出图，只是没有文字。错误图保留浅色背景以便阅读。参数、缓存与状态响应头与 SVG 接口一致。
+`/api/png/chart/{owner}/{repo}` 返回同样图表的 PNG，供无法渲染 SVG 或 CSS 变量的流程使用。PNG 在生成时就固定下来，因此 `theme` 必须写明固定外观：`light`、`dark` 或 `transparent`，不指定时按 `light` 处理；`theme=auto` 会被拒绝，因为图片生成后已经没有可以跟随的读者。浅色与深色卡片直接画进像素，图片查看器无法再改写背景，而 `theme=transparent` 保持透明通道。`lang=auto` 按英语处理，显式传入 `lang=zh` 仍然生效。首次请求时每个边缘节点会从 Google Fonts 获取 Noto Sans / Noto Sans SC（SIL OFL 1.1）的字形子集；获取失败时仍会出图，只是没有文字。错误图保留浅色背景以便阅读。参数、缓存与状态响应头与 SVG 接口一致。
 
 ### 参数
 
@@ -38,7 +38,7 @@ GET /api/png/chart/{owner}/{repo}
 | `metrics` | 逗号分隔的 `downloads`、`rating`、`ratings` | `downloads` |
 | `range` | `30d`、`90d`、`1y`、`all` | `all` |
 | `start`、`end` | UTC 日期，格式 `YYYY-MM-DD`；至少传一个即可，与 `range` 二选一 | — |
-| `theme` | `light`、`dark`、`auto` | `auto` |
+| `theme` | `light`、`dark`、`auto`、`transparent`；PNG 图表支持前两个与 `transparent`，不支持 `auto` | `auto`，PNG 接口为 `light` |
 | `width` | 320 到 1600 之间的整数 | `800` |
 | `height` | 200 到 1000 之间的整数 | `400` |
 | `title` | `true`、`false` | `true` |
@@ -51,6 +51,8 @@ GET /api/png/chart/{owner}/{repo}
 只传 `start` 时加载该日期到最新观测，只传 `end` 时加载从最早观测到该日期（含当天），两个都传时加载该区间。
 
 `theme=auto` 与 `lang=auto` 让同一份 SVG 自带两套配色和中英文标签，分别按读者的系统深浅色偏好与界面语言选择。图片拿不到 GitHub 页面主题，系统深色配浅色 GitHub 时仍会显示深色卡片；需要固定外观时显式指定 `theme` 或 `lang`。
+
+`theme=transparent` 去掉背景卡片以及所有用背景色绘制的装饰，图表直接落在页面底色上；SVG 仍自带两套配色，因此文字、网格和坐标轴在浅色和深色页面上都清晰可读。
 
 配色是内联 `<style>` 中的 CSS 自定义属性，因此 SVG 依赖 CSS 变量支持。忽略 `var()` 的渲染器（例如 cairosvg）会丢掉全部文字——标题、坐标轴标签与图例——只留下曲线和网格，`lang` 与 `theme` 都无法规避。用于 PDF 或图片导出时请改用支持 CSS 变量的渲染器，或使用上面的 PNG 接口。
 

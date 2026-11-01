@@ -56,8 +56,12 @@ export const ERRORS = {
     zh: { message: '未知指标', hint: '请使用 metrics=downloads,rating,ratings（可多选）。' },
   },
   unknownTheme: {
-    en: { message: 'Unknown theme', hint: 'Use theme=light, theme=dark or theme=auto.' },
-    zh: { message: '未知主题', hint: '请使用 theme=light、theme=dark 或 theme=auto。' },
+    en: { message: 'Unknown theme', hint: 'Use theme=light, theme=dark, theme=auto or theme=transparent.' },
+    zh: { message: '未知主题', hint: '请使用 theme=light、theme=dark、theme=auto 或 theme=transparent。' },
+  },
+  unknownPngTheme: {
+    en: { message: 'Unknown theme', hint: 'PNG charts need theme=light, theme=dark or theme=transparent; auto cannot be rasterised.' },
+    zh: { message: '未知主题', hint: 'PNG 图表请使用 theme=light、theme=dark 或 theme=transparent，auto 无法栅格化。' },
   },
   unknownLanguage: {
     en: { message: 'Unknown language', hint: 'Use lang=en, lang=zh or lang=auto.' },

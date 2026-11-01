@@ -77,6 +77,14 @@ describe('SVG Worker', () => {
     expect(body).not.toContain('<switch>')
     expect(body).not.toContain('Downloads (L)')
   })
+  it('serves a transparent SVG that still follows the reader', async () => {
+    const response = await worker.fetch(new Request('https://charts.test/api/chart/owner/repo?theme=transparent'))
+    const body = await response.text()
+    expect(response.headers.get('x-chart-status')).toBe('ok')
+    expect(body).not.toContain('<rect width="100%"')
+    expect(body).not.toContain('data-halo')
+    expect(body).toContain('@media (prefers-color-scheme:dark)')
+  })
   it.each(['/api/chart/nope', '/api/chart/owner/repo?metrics=nope', '/api/chart/owner/repo?start=2020-01-01&end=2020-01-02'])('returns visible SVG errors for %s', async path => {
     const response = await worker.fetch(new Request(`https://charts.test${path}`))
     expect(response.status).toBe(200)
@@ -182,7 +190,7 @@ describe('PNG Worker', () => {
   const lastSvg = () => String(vi.mocked(svgToPng).mock.calls.at(-1)?.[0])
   beforeEach(() => vi.mocked(svgToPng).mockClear())
 
-  it('rasterises a transparent, single-language light chart', async () => {
+  it('rasterises an opaque light chart by default', async () => {
     const response = await worker.fetch(new Request('https://charts.test/api/png/chart/owner/repo?metrics=downloads,rating,ratings'))
     expect(response.headers.get('content-type')).toBe('image/png')
     expect(response.headers.get('x-chart-status')).toBe('ok')
@@ -192,15 +200,29 @@ describe('PNG Worker', () => {
     const svg = lastSvg()
     // The route still resolves the owner/repo pair for the title.
     expect(svg).toContain('>owner/repo</text>')
-    // No card, halos or background-coloured rings: the PNG must stay transparent.
-    expect(svg).not.toContain('<rect width="100%"')
-    expect(svg).not.toContain('data-halo')
-    expect(svg).not.toContain('#f5f8fb')
-    // A raster cannot follow the reader, so auto resolves to English and light.
+    // The card is painted into the raster, edge to edge, so an image viewer cannot
+    // repaint the background; halos and rings stay because they belong to it.
+    expect(svg).toContain('<rect width="100%" height="100%" fill="#f5f8fb"/>')
+    expect(svg).toContain('data-halo')
+    // A raster cannot follow the reader, so the language resolves to English and
+    // the palette is fixed instead of shipped as CSS custom properties.
     expect(svg).not.toContain('<switch>')
     expect(svg).not.toContain('<style>')
     expect(svg).toContain('data-lang="en"')
     expect(svg).toContain('Downloads (L) 42')
+    expect(svg).toContain('data-metric="downloads"')
+  })
+
+  it('keeps the alpha channel empty for theme=transparent', async () => {
+    const response = await worker.fetch(new Request('https://charts.test/api/png/chart/owner/repo?theme=transparent&metrics=downloads,rating'))
+    expect(response.headers.get('content-type')).toBe('image/png')
+    expect(response.headers.get('x-chart-status')).toBe('ok')
+    const svg = lastSvg()
+    // No card, halos or background-coloured rings: the pixels stay transparent.
+    expect(svg).not.toContain('<rect width="100%"')
+    expect(svg).not.toContain('data-halo')
+    expect(svg).not.toContain('#f5f8fb')
+    expect(svg).not.toContain('<style>')
     expect(svg).toContain('data-metric="downloads"')
   })
 
@@ -210,8 +232,19 @@ describe('PNG Worker', () => {
     const svg = lastSvg()
     expect(svg).toContain('data-lang="zh"')
     expect(svg).toContain('下载量 (左轴) 42')
+    expect(svg).toContain('fill="#18232f"')
     expect(svg).toContain('fill="#d5e2ed"')
     expect(svg).not.toContain('<switch>')
+  })
+
+  it('rejects theme=auto on the PNG route', async () => {
+    for (const lang of ['en', 'zh']) {
+      const response = await worker.fetch(new Request(`https://charts.test/api/png/chart/owner/repo?theme=auto&lang=${lang}`))
+      expect(response.headers.get('content-type')).toBe('image/png')
+      expect(response.headers.get('x-chart-status')).toBe('error')
+      const svg = lastSvg()
+      expect(svg).toContain(lang === 'en' ? 'theme=light, theme=dark or theme=transparent' : 'theme=light、theme=dark 或 theme=transparent')
+    }
   })
 
   it('answers PNG errors as PNG and falls back to SVG when rasterising fails', async () => {

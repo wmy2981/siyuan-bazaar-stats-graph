@@ -5,7 +5,8 @@
  * served as an image and cached by GitHub's image proxy.
  */
 export type Metric = 'downloads' | 'rating' | 'ratings';
-export type Theme = 'light' | 'dark' | 'auto';
+/** `transparent` drops the card; the fixed themes paint it opaquely. */
+export type Theme = 'light' | 'dark' | 'auto' | 'transparent';
 export type ChartLanguage = 'en' | 'zh' | 'auto';
 type ResolvedLanguage = Exclude<ChartLanguage, 'auto'>;
 
@@ -38,11 +39,18 @@ export interface ChartOptions {
   lang: ChartLanguage;
   repo: string;
   /**
-   * Internal only, never a query parameter: omit the palette background card and
-   * the background-coloured decorations so a rasteriser can emit a genuinely
-   * transparent image. See src/png.ts.
+   * Omit the palette background card and the background-coloured decorations so
+   * a rasteriser can emit a genuinely transparent image. Query callers set it
+   * with `theme=transparent`; the PNG route sets it directly after resolving the
+   * theme to a fixed palette. See src/png.ts.
    */
   transparent?: boolean;
+  /**
+   * Fill the card edge to edge instead of rounding its corners, so a raster has
+   * no partly transparent pixels for an image viewer to tint. The PNG route sets
+   * it for a fixed theme. See src/png.ts.
+   */
+  squareCard?: boolean;
 }
 
 /** A metric value resolved from a ChartPoint, tagged with its index in the history. */
@@ -109,6 +117,15 @@ const PALETTE: Record<'light' | 'dark', Record<PaletteKey, string>> = {
  * serve readers in either appearance without a second request.
  */
 const AUTO_STYLE = `<style>svg{--chart-background:${PALETTE.light.background};--chart-foreground:${PALETTE.light.foreground};--chart-title:${PALETTE.light.title};--chart-grid:${PALETTE.light.grid};--chart-muted:${PALETTE.light.muted}}.chart-background{fill:var(--chart-background)}.chart-foreground{fill:var(--chart-foreground)}.chart-title{fill:var(--chart-title)}.chart-grid{stroke:var(--chart-grid)}.chart-muted{fill:var(--chart-muted)}.chart-ring{stroke:var(--chart-background)}@media (prefers-color-scheme:dark){svg{--chart-background:${PALETTE.dark.background};--chart-foreground:${PALETTE.dark.foreground};--chart-title:${PALETTE.dark.title};--chart-grid:${PALETTE.dark.grid};--chart-muted:${PALETTE.dark.muted}}}</style>`;
+
+/**
+ * Themes that let one cached document follow the reader: `auto` switches the
+ * card, text and grid between light and dark, `transparent` keeps that switch
+ * for text and grid but paints no background at all.
+ */
+const followsReader = (theme: Theme): boolean => theme === 'auto' || theme === 'transparent';
+/** A transparent chart omits its card and every background-coloured decoration. */
+const isTransparent = (options: ChartOptions): boolean => options.transparent === true || options.theme === 'transparent';
 
 /** Escape text before it is interpolated into SVG markup. */
 const escapeXml = (value: unknown): string => String(value)
@@ -282,7 +299,7 @@ export function renderChart(points: ChartPoint[], options: ChartOptions): string
   const height = Math.max(1, Number.isFinite(options.height) ? options.height : 400);
   const zh = renderChartDocument(points, options, 'zh', true);
   const en = renderChartDocument(points, options, 'en', true);
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${num(width)}" height="${num(height)}" viewBox="0 0 ${num(width)} ${num(height)}" role="img" aria-labelledby="chart-title chart-desc" data-lang="auto" font-family="${FONT}"><title id="chart-title">${escapeXml(options.repo)}</title><desc id="chart-desc">Repository metrics over time / 仓库指标时间折线图</desc>${options.theme === 'auto' ? AUTO_STYLE : ''}<switch><g systemLanguage="${CHINESE_LANGUAGES}" lang="zh-CN">${zh}</g><g lang="en">${en}</g></switch></svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${num(width)}" height="${num(height)}" viewBox="0 0 ${num(width)} ${num(height)}" role="img" aria-labelledby="chart-title chart-desc" data-lang="auto" font-family="${FONT}"><title id="chart-title">${escapeXml(options.repo)}</title><desc id="chart-desc">Repository metrics over time / 仓库指标时间折线图</desc>${followsReader(options.theme) ? AUTO_STYLE : ''}<switch><g systemLanguage="${CHINESE_LANGUAGES}" lang="zh-CN">${zh}</g><g lang="en">${en}</g></switch></svg>`;
 }
 
 /**
@@ -378,24 +395,26 @@ function renderChartDocument(points: ChartPoint[], options: ChartOptions, lang: 
     const scale = scales[metric]!;
     return titleSpace + (scale.max - value) / (scale.max - scale.min) * plotHeight;
   };
-  const auto = options.theme === 'auto';
+  const transparent = isTransparent(options);
+  const dynamic = followsReader(options.theme);
   const palette = options.theme === 'dark' ? PALETTE.dark : PALETTE.light;
   /**
- * Emit a palette value. A fixed theme needs a plain attribute; the automatic theme
- * adds the class for the CSS custom property but keeps the inline light value as a
- * fallback for renderers that do not support variables.
+ * Emit a palette value. A fixed theme needs a plain attribute; a document that
+ * follows the reader adds the class for the CSS custom property but keeps the
+ * inline light value as a fallback for renderers that do not support variables.
  */
   const paint = (name: PaletteKey, kind: 'fill' | 'stroke', cls = `chart-${name}`): string =>
-    auto ? `class="${cls}" ${kind}="${PALETTE.light[name]}"` : `${kind}="${palette[name]}"`;
+    dynamic ? `class="${cls}" ${kind}="${PALETTE.light[name]}"` : `${kind}="${palette[name]}"`;
   const svg: string[] = bodyOnly ? [] : [
     `<svg xmlns="http://www.w3.org/2000/svg" width="${num(width)}" height="${num(height)}" viewBox="0 0 ${num(width)} ${num(height)}" role="img" aria-labelledby="chart-title chart-desc" data-lang="${lang}" font-family="${FONT}">`,
     `<title id="chart-title">${escapeXml(options.repo)}</title>`,
     `<desc id="chart-desc">${escapeXml(lang === 'zh' ? '仓库指标时间折线图' : 'Repository metrics over time')}</desc>`,
-    ...(auto ? [AUTO_STYLE] : []),
+    ...(dynamic ? [AUTO_STYLE] : []),
   ];
   // A transparent chart skips the background card entirely: the plot, grid and
-  // labels paint directly onto whatever the reader places the PNG over.
-  if (!options.transparent) svg.push(`<rect width="100%" height="100%" rx="8" ${paint('background', 'fill')}/>`);
+  // labels paint directly onto whatever the reader places the image over. A
+  // rasterised card is square so that no pixel of the PNG stays see-through.
+  if (!transparent) svg.push(`<rect width="100%" height="100%"${options.squareCard ? '' : ' rx="8"'} ${paint('background', 'fill')}/>`);
 
   if (options.title) {
     const room = width - left - 14;
@@ -460,7 +479,7 @@ function renderChartDocument(points: ChartPoint[], options: ChartOptions, lang: 
    */
   for (const metric of metrics) {
     const color = COLORS[metric];
-    const halo = !options.transparent && !(dashRatings && metric === 'ratings');
+    const halo = !transparent && !(dashRatings && metric === 'ratings');
     for (const { points: segment } of series.get(metric)!) {
       if (segment.length <= 1) continue;
       const coordinates = segment.map((point) => `${num(x(point.t))},${num(y(metric, point.value))}`).join(' ');
@@ -492,7 +511,7 @@ function renderChartDocument(points: ChartPoint[], options: ChartOptions, lang: 
     const last = segments.at(-1)?.points.at(-1);
     // The endpoint ring is stroked in the background colour to lift the dot off
     // the line; a transparent chart has no background, so it omits the ring.
-    if (last) svg.push(`<circle data-endpoint="${metric}" cx="${num(x(last.t))}" cy="${num(y(metric, last.value))}" r="3.5" fill="${color}"${options.transparent ? '' : ` ${paint('background', 'stroke', 'chart-ring')} stroke-width="1.5"`}/>`);
+    if (last) svg.push(`<circle data-endpoint="${metric}" cx="${num(x(last.t))}" cy="${num(y(metric, last.value))}" r="3.5" fill="${color}"${transparent ? '' : ` ${paint('background', 'stroke', 'chart-ring')} stroke-width="1.5"`}/>`);
   }
 
   if (!all.length) {

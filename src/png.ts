@@ -9,8 +9,11 @@
  * Only fixed-language, fixed-theme documents may reach this module. The
  * `lang=auto` / `theme=auto` documents switch through <switch> and CSS custom
  * properties, neither of which a static rasteriser resolves the way a browser
- * does; src/index.ts resolves auto to en/light first, which is also what the
- * issue asks for: a PNG cannot follow the reader after it has been rendered.
+ * does; src/index.ts resolves the language to en/zh and the theme to a fixed
+ * light or dark palette first, which is also what the issue asks for: a PNG
+ * cannot follow the reader after it has been rendered. `theme=transparent` is
+ * resolved to the light palette with src/index.ts dropping the background card,
+ * so the PNG's alpha channel stays empty without relying on CSS.
  *
  * Text needs real fonts — see src/fonts.ts. When every font fetch failed the
  * render still succeeds but contains no text; that degradation is logged there
@@ -28,8 +31,9 @@ const ensureResvg = (): Promise<void> => (initialised ??= initWasm(resvgWasm))
 /**
  * Rasterise one complete SVG document at its natural size.
  *
- * No background is painted here or in the SVG, so the PNG keeps a transparent
- * alpha channel.
+ * No background is added here: a light or dark chart carries its own card in the
+ * SVG, and a transparent one paints nothing behind the plot, so the PNG keeps an
+ * empty alpha channel exactly as the document asked.
  */
 export async function svgToPng(svg: string, lang: ResolvedLanguage): Promise<Uint8Array> {
   await ensureResvg()

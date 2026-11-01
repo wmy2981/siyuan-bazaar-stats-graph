@@ -9,10 +9,16 @@ import type { ChartLanguage, ChartOptions, Metric, Theme } from './chart'
 
 /** Metrics the metrics parameter accepts, in the order they are drawn and listed. */
 const metrics: Metric[] = ['downloads', 'rating', 'ratings']
+/** Themes the SVG route accepts; the PNG route rejects `auto`, see parseOptions(). */
+const themes: Theme[] = ['light', 'dark', 'auto', 'transparent']
 /** Range names to day counts; `all` means the whole history and maps to undefined. */
 const ranges: Record<string, number | undefined> = { '30d': 30, '90d': 90, '1y': 365, all: undefined }
 
-export function parseOptions(url: URL): ChartOptions & { start?: number; end?: number } {
+/**
+ * `png` marks the raster route, which cannot follow the reader: there the theme
+ * defaults to `light` and an explicit `auto` is rejected.
+ */
+export function parseOptions(url: URL, png = false): ChartOptions & { start?: number; end?: number } {
   const allowed = new Set(['metrics', 'theme', 'lang', 'width', 'height', 'title', 'legend', 'grid', 'area', 'updated', 'range', 'start', 'end'])
   for (const name of url.searchParams.keys()) if (!allowed.has(name)) throw new ChartError('unknownParameter', { name })
   /** Read a parameter once; repetition is rejected instead of silently ignored. */
@@ -24,8 +30,10 @@ export function parseOptions(url: URL): ChartOptions & { start?: number; end?: n
   const metricParam = one('metrics') || 'downloads'
   const selected = [...new Set(metricParam.split(',').map(v => v.trim()))]
   if (!selected.length || selected.some(v => !metrics.includes(v as Metric))) throw new ChartError('unknownMetric')
-  const theme = one('theme') || 'auto'
-  if (theme !== 'light' && theme !== 'dark' && theme !== 'auto') throw new ChartError('unknownTheme')
+  const theme = one('theme') || (png ? 'light' : 'auto')
+  if (!themes.includes(theme as Theme)) throw new ChartError('unknownTheme')
+  // A raster is frozen once rendered, so it cannot resolve auto the way the SVG does.
+  if (png && theme === 'auto') throw new ChartError('unknownPngTheme')
   const lang = one('lang') || 'auto'
   if (lang !== 'en' && lang !== 'zh' && lang !== 'auto') throw new ChartError('unknownLanguage')
   /** Numeric parameters are whole numbers inside an explicit range. */

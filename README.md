@@ -29,7 +29,7 @@ GET /api/png/chart/{owner}/{repo}
 
 `/api/chart/{owner}/{repo}` always answers with a self-contained `image/svg+xml` document, including input and upstream errors, so failures stay visible instead of becoming a broken image in a GitHub README. Successful charts are cached for 30 minutes, error charts for one minute. During an upstream outage the latest successful chart may be served for up to 24 hours with `X-Chart-Status: stale` and `X-Cache: STALE`; otherwise `X-Chart-Status` is `ok` or `error`.
 
-`/api/png/chart/{owner}/{repo}` returns the same chart as a PNG with a transparent background, for pipelines that cannot render SVG or CSS variables. A raster is frozen at render time, so `lang=auto` and `theme=auto` are not available there: an omitted or auto language and theme resolve to English and light, and explicit `lang=zh` or `theme=dark` still apply. Glyph subsets of Noto Sans / Noto Sans SC (SIL OFL 1.1) are fetched from Google Fonts on the first request per edge location; if that fetch fails the PNG still renders, without text. Error cards keep a light background so the message stays readable. Parameters, caching and status headers match the SVG route.
+`/api/png/chart/{owner}/{repo}` returns the same chart as a PNG, for pipelines that cannot render SVG or CSS variables. A raster is frozen at render time, so `theme` must name a fixed look: `light`, `dark` or `transparent`, defaulting to `light`; `theme=auto` is rejected because a PNG has no reader left to follow. The light and dark cards are painted into the raster itself, so an image viewer cannot repaint the background, while `theme=transparent` leaves the alpha channel empty. `lang=auto` resolves to English, and an explicit `lang=zh` still applies. Glyph subsets of Noto Sans / Noto Sans SC (SIL OFL 1.1) are fetched from Google Fonts on the first request per edge location; if that fetch fails the PNG still renders, without text. Error cards keep a light background so the message stays readable. Parameters, caching and status headers match the SVG route.
 
 ### Parameters
 
@@ -38,7 +38,7 @@ GET /api/png/chart/{owner}/{repo}
 | `metrics` | Comma-separated `downloads`, `rating`, `ratings` | `downloads` |
 | `range` | `30d`, `90d`, `1y`, `all` | `all` |
 | `start`, `end` | UTC dates, `YYYY-MM-DD`; pass either or both, instead of `range` | — |
-| `theme` | `light`, `dark`, `auto` | `auto` |
+| `theme` | `light`, `dark`, `auto`, `transparent`; PNG charts take the first two and `transparent`, not `auto` | `auto`, or `light` on the PNG route |
 | `width` | Integer from 320 to 1600 | `800` |
 | `height` | Integer from 200 to 1000 | `400` |
 | `title` | `true`, `false` | `true` |
@@ -51,6 +51,8 @@ GET /api/png/chart/{owner}/{repo}
 Passing only `start` loads from that date to the newest observation; only `end` loads everything up to that date, covering the whole UTC day; both load that range.
 
 `theme=auto` and `lang=auto` ship both palettes and both languages in one SVG, chosen from the reader's system colour preference and interface language. An image cannot see GitHub's page theme, so a dark system with a light GitHub still gets a dark card; set `theme` or `lang` explicitly for a fixed look.
+
+`theme=transparent` drops the background card and every background-coloured decoration, so the chart sits directly on the page behind it; the SVG still ships both palettes, so text, grid and axes stay legible on light and dark pages alike.
 
 Colours are CSS custom properties in an inline `<style>` element, so the SVG needs CSS variable support. Renderers that ignore `var()` (cairosvg, for example) drop every text element — title, axis labels and legend — leaving only curves and grid, and neither `lang` nor `theme` avoids this. Use a CSS-capable renderer, or the PNG route above, for PDF or image pipelines.
 

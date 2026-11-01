@@ -35,6 +35,17 @@ describe('chart parameters', () => {
     // Both bounds remain independent when both are supplied.
     expect(parseOptions(url('start=2026-08-01&end=2026-08-02')).start).toBe(Date.UTC(2026, 7, 1) / 1000)
   })
+  it('fixes the PNG theme instead of resolving auto', () => {
+    const png = (query = '') => new URL(`https://charts.example/api/png/chart/owner/repo?${query}`)
+    // A raster is frozen at render time, so it defaults to light and must name a theme.
+    expect(parseOptions(png(), true).theme).toBe('light')
+    expect(parseOptions(png('theme=dark'), true).theme).toBe('dark')
+    expect(parseOptions(png('theme=transparent'), true).theme).toBe('transparent')
+    expect(() => parseOptions(png('theme=auto'), true)).toThrow()
+    expect(() => parseOptions(png('theme=blue'), true)).toThrow()
+    // The SVG route still defaults to auto and accepts transparent.
+    expect(parseOptions(url('theme=transparent')).theme).toBe('transparent')
+  })
 })
 
 describe('history slicing', () => {

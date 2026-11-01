@@ -1,8 +1,8 @@
 /**
  * Worker entry point: serves the chart builder at /, SVG charts at
- * /api/chart/{owner}/{repo} and transparent PNG charts at
- * /api/png/chart/{owner}/{repo}. SVG routes always answer expected errors with
- * SVG; the PNG route answers with a rasterised error chart instead.
+ * /api/chart/{owner}/{repo} and PNG charts at /api/png/chart/{owner}/{repo}.
+ * SVG routes always answer expected errors with SVG; the PNG route answers with
+ * a rasterised error chart instead.
  */
 import { waitUntil } from 'cloudflare:workers'
 import { renderAutoErrorChart, renderChart, renderErrorChart, type ChartOptions } from './chart'
@@ -120,7 +120,7 @@ export default {
     staleUrl.searchParams.set('_stale', '1')
     const staleKey = new Request(staleUrl.toString(), { method: 'GET' })
     try {
-      const options = parseOptions(url)
+      const options = parseOptions(url, isPng)
       const cached = await caches.default.match(cacheKey)
       if (cached) return cacheHit(cached)
       const pkg = await loadPackage(`${match[1]}/${match[2]}`)
@@ -135,11 +135,13 @@ export default {
       const lastUpdated = pkg.history.reduce((latest, point) =>
         Number.isFinite(point.t) && point.t > latest ? point.t : latest, Number.NEGATIVE_INFINITY)
       // A PNG is frozen at render time, so it cannot follow the reader the way
-      // the auto SVG does: `lang=auto` and `theme=auto` — explicit or defaulted
-      // — resolve to English and light, and the background is omitted.
+      // the auto SVG does: `lang=auto` resolves to English, and the theme — which
+      // parseOptions() already limited to light, dark or transparent — becomes a
+      // fixed palette, with the background card dropped only for transparent. A
+      // fixed card is square, so an image viewer has no corner pixel to tint.
       const lang: ResolvedLanguage = options.lang === 'zh' ? 'zh' : 'en'
       const renderOptions: ChartOptions = isPng
-        ? { ...options, lang, theme: options.theme === 'dark' ? 'dark' : 'light', transparent: true }
+        ? { ...options, lang, theme: options.theme === 'dark' ? 'dark' : 'light', transparent: options.theme === 'transparent', squareCard: true }
         : options
       const chart = renderChart(history, { ...renderOptions, lastUpdated: Number.isFinite(lastUpdated) ? lastUpdated : undefined })
       const response = isPng ? png(await svgToPng(chart, lang)) : svg(chart)
