@@ -332,7 +332,7 @@ components:
       name: grid
       in: query
       required: false
-      description: Draw the horizontal grid lines and the date axis.
+      description: Draw the horizontal grid lines. The baseline and the date axis labels are always drawn.
       schema:
         type: boolean
         default: true
