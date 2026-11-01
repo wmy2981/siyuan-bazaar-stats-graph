@@ -185,7 +185,7 @@ export default {
         options.start === undefined ? undefined : options.start * 1000,
         options.end === undefined ? undefined : options.end * 1000,
       )
-      if (!history.length) throw new ChartError('noHistoryInRange', {}, 404)
+      if (!history.length) throw new ChartError('noHistoryInRange')
       // The last-updated line uses the full upstream history, not the sliced
       // range being rendered and not the time this chart was generated.
       const lastUpdated = pkg.history.reduce((latest, point) => (Number.isFinite(point.t) && point.t > latest ? point.t : latest), Number.NEGATIVE_INFINITY)
@@ -219,7 +219,7 @@ export default {
         stale.headers.set('Cache-Control', 'public, max-age=60, s-maxage=60')
         return stale
       }
-      const error = cause instanceof ChartError ? cause : new ChartError('renderFailed', {}, 502)
+      const error = cause instanceof ChartError ? cause : new ChartError('renderFailed')
       if (!(cause instanceof ChartError)) console.error('Chart generation failed', cause)
       return isPng ? pngError(url, error) : svg(errorChart(url, error), 200, true)
     }

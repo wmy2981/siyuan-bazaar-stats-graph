@@ -60,13 +60,17 @@ interface PackageDetail {
   history: ChartPoint[]
 }
 
-/** Error carrying a localisable code, its substitutions and the status to log. */
+/**
+ * Error carrying a localisable code and its substitutions.
+ *
+ * The HTTP status is not part of it: both chart routes answer 200 with an error
+ * image on purpose, so nothing downstream may switch on a status.
+ */
 export class ChartError extends Error {
   readonly hint: string
   constructor(
     readonly code: ErrorCode,
     readonly values: ErrorValues = {},
-    readonly status = 400,
   ) {
     const text = localizeError(code, values, 'en')
     super(text.message)
@@ -94,18 +98,18 @@ async function get(url: string, timeout = 15_000): Promise<Response> {
       headers: { 'User-Agent': 'siyuan-bazaar-stats-graph/1.0', Accept: 'application/json, application/x-ndjson, text/plain' },
     })
   } catch {
-    throw new ChartError('dataSourceUnavailable', {}, 502)
+    throw new ChartError('dataSourceUnavailable')
   }
 }
 
 /** Fetch and parse JSON, mapping transport, status and parse failures to their own codes. */
 async function json<T>(url: string): Promise<T> {
   const response = await get(url)
-  if (!response.ok) throw new ChartError('dataSourceError', { status: response.status }, 502)
+  if (!response.ok) throw new ChartError('dataSourceError', { status: response.status })
   try {
     return (await response.json()) as T
   } catch {
-    throw new ChartError('dataSourceInvalid', {}, 502)
+    throw new ChartError('dataSourceInvalid')
   }
 }
 
@@ -117,7 +121,7 @@ async function json<T>(url: string): Promise<T> {
  */
 function assertSchema(value: { schema?: unknown }): void {
   const schema = value.schema === undefined ? DATA_SCHEMA : value.schema
-  if (schema !== DATA_SCHEMA) throw new ChartError('unsupportedSchema', { schema: String(schema), supported: String(DATA_SCHEMA) }, 502)
+  if (schema !== DATA_SCHEMA) throw new ChartError('unsupportedSchema', { schema: String(schema), supported: String(DATA_SCHEMA) })
 }
 
 /** Normalise a GitHub URL or slug into a lowercase owner/repo pair. */
@@ -162,7 +166,7 @@ async function resolvePackage(repo: string): Promise<string> {
   } catch {
     // Preserve the actionable not-found response if the secondary index is unavailable.
   }
-  throw new ChartError('packageNotFound', { repo }, 404)
+  throw new ChartError('packageNotFound', { repo })
 }
 
 /** Depth-first search of the catalog for a record pointing at this repository. */
@@ -266,10 +270,10 @@ async function loadSnapshots(name: string): Promise<ChartPoint[]> {
     months.map(async (month) => {
       const response = await get(`${RAW_URL}/${month}.jsonl`)
       if (response.status === 404) return ''
-      if (!response.ok) throw new ChartError('historyUnavailable', { status: response.status }, 502)
-      if (Number(response.headers.get('content-length')) > MAX_SNAPSHOT_BYTES) throw new ChartError('historyTooLarge', {}, 502)
+      if (!response.ok) throw new ChartError('historyUnavailable', { status: response.status })
+      if (Number(response.headers.get('content-length')) > MAX_SNAPSHOT_BYTES) throw new ChartError('historyTooLarge')
       const text = await response.text()
-      if (text.length > MAX_SNAPSHOT_BYTES) throw new ChartError('historyTooLarge', {}, 502)
+      if (text.length > MAX_SNAPSHOT_BYTES) throw new ChartError('historyTooLarge')
       return text
     }),
   )
@@ -282,7 +286,7 @@ async function loadSnapshots(name: string): Promise<ChartPoint[]> {
       try {
         snapshot = JSON.parse(line)
       } catch {
-        throw new ChartError('historyMalformed', {}, 502)
+        throw new ChartError('historyMalformed')
       }
       if (!Number.isFinite(snapshot.t) || !snapshot.p || typeof snapshot.p !== 'object') continue
       if (snapshot.full) current = undefined
